@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hira EMR Mediator Gateway</title>
+    <title>mart clinic gateway</title>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
@@ -186,6 +186,21 @@
             width: 1.25rem;
             height: 1.25rem;
             fill: var(--accent-secondary);
+        }
+
+        .panel-subtitle {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            color: var(--accent-primary);
+            border-radius: 999px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            padding: 0.5rem 0.9rem;
+            margin-bottom: 1rem;
+            width: fit-content;
         }
 
         /* Waiting Queue Styling */
@@ -923,7 +938,7 @@
                 </svg>
             </div>
             <div class="logo-text">
-                <h1>Hira EMR Mediator Gateway</h1>
+                <h1>mart clinic gateway</h1>
                 <span>Cross-DB Restful Broker</span>
             </div>
         </div>
@@ -942,6 +957,9 @@
                 <div class="panel-title">
                     <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
                     Live Waitlist
+                </div>
+                <div style="display:flex; align-items:center; gap:0.75rem;">
+                    <div class="panel-subtitle">Today’s waitlist only</div>
                 </div>
                 <ul class="waitlist-list" id="waitlist">
                     <li style="text-align: center; color: var(--text-muted); padding: 2rem;">Loading waitlist...</li>
@@ -1137,31 +1155,26 @@
                 .then(data => {
                     const waitListEl = document.getElementById("waitlist");
                     waitListEl.innerHTML = "";
-                    
+
                     if (!data.queue || data.queue.length === 0) {
                         waitListEl.innerHTML = `<li style="text-align: center; color: var(--text-muted); padding: 2rem;">Waitlist is currently empty.</li>`;
                         return;
                     }
-                    
+
                     data.queue.forEach(item => {
                         const li = document.createElement("li");
                         li.className = "waitlist-item";
-                        li.onclick = () => selectPatient(item.pcode);
-                        
-                        const pName = item.patient ? item.patient.pname : `Code: ${item.pcode}`;
-                        const dept = item.deptnm || "진료";
-                        const doc = item.doctrnm ? `${item.doctrnm} 원장` : "대기";
-                        const room = item.roomnm || "";
-                        
+
+                        const pName = item.pname || (item.patient ? item.patient.pname : `Code: ${item.pcode}`);
+                        const time = item.visitime || item.visitime || '';
+                        const extra = item.fin ? `FIN:${item.fin}` : '';
+
                         li.innerHTML = `
                             <div class="patient-summary">
                                 <h4>${pName}</h4>
-                                <p>${dept} | ${doc} (${room})</p>
+                                <p>${time} ${extra}</p>
                             </div>
-                            <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                <span class="waiting-badge">Wait</span>
-                                <button class="delete-queue-btn" onclick="deleteFromWaitlist(event, '${item.resid1}', '${pName}')" title="접수 취소 / 진료 완료">&times;</button>
-                            </div>
+                            <div style="display:flex; align-items:center; gap:0.5rem; color:var(--text-muted);">MTR</div>
                         `;
                         waitListEl.appendChild(li);
                     });

@@ -39,7 +39,7 @@ except Exception as e:
     decrypt_client = None
 
 app = FastAPI(
-    title="EMR Integration REST API Server",
+    title="mart clinic gateway API",
     description="REST API mediator for local Firebird EMR databases with native 32-bit decryption.",
     version="1.0.0"
 )
@@ -333,79 +333,71 @@ def get_patient_detail(pcode: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/waiting")
-def get_waiting():
-    """Queries the active waitlist from the latest non-empty WAIT[YYYY] table, joining patient names."""
-    # Find all WAIT[YYYY] tables
-    tables = get_annual_tables("MTSWAIT", "WAIT")
-    if not tables:
-        raise HTTPException(status_code=500, detail="No WAIT[YYYY] tables found in MTSWAIT database.")
-        
-    con_wait = get_db_connection("MTSWAIT")
-    cur_wait = con_wait.cursor()
-    
+def get_waiting(
+    source: str = Query(
+        "mtsmtr",
+        regex="^(mtswait|mtsmtr)$",
+        description="Choose which source to fetch from: mtswait or mtsmtr."
+    )
+):
+    """Queries today's queue from either MTSWAIT or MTSMTR.
+
+    By default, this returns MTSMTR (ledger) entries for the current date. Use source=mtswait
+    to fetch the live queue from MTSWAIT instead.
+    """
+    today = datetime.date.today()
+    source = source.lower()
     active_table = None
-    wait_records = []
-    
-    # Iterate from latest year backwards to find the latest table with records
-    for t in tables:
-        try:
-            cur_wait.execute(f"SELECT COUNT(*) FROM {t}")
-            cnt = cur_wait.fetchone()[0]
-            if cnt > 0:
-                active_table = t
-                # Fetch recent 50 waiting records
-                cur_wait.execute(f"SELECT FIRST 50 PCODE, VISIDATE, RESID1, ROOMNM, DEPTNM, DOCTRNM, DOCTRCODE FROM {t} ORDER BY VISIDATE DESC, RESID1 DESC")
-                cols = [desc[0] for desc in cur_wait.description]
-                wait_records = [serialize_row(cols, r) for r in cur_wait.fetchall()]
-                break
-        except Exception as e:
-            logger.warning(f"Skipping table {t} due to error: {e}")
-            continue
-            
-    con_wait.close()
-    
-    if not active_table or not wait_records:
-        return {"active_table": None, "queue": []}
-        
-    # Extract unique patient codes
-    pcodes = list(set([r["pcode"] for r in wait_records if r.get("pcode")]))
-    
-    # Query patient details from MTSDB to join names and birth dates
-    patient_map = {}
-    if pcodes:
-        con_db = get_db_connection("MTSDB")
-        cur_db = con_db.cursor()
-        try:
-            # Construct IN clause
-            pcode_placeholders = ",".join(["?" for _ in pcodes])
-            sql = f"SELECT PCODE, PNAME, PBIRTH, SEX, PIDNUM FROM PERSON WHERE PCODE IN ({pcode_placeholders})"
-            cur_db.execute(sql, tuple(pcodes))
-            cols_p = [desc[0] for desc in cur_db.description]
-            for r in cur_db.fetchall():
-                p_dict = serialize_row(cols_p, r)
-                # Decrypt RRN for waitlist detail if needed
-                pidnum_enc = p_dict.get("pidnum")
-                if pidnum_enc and decrypt_client:
-                    p_dict["pidnum_decrypted"] = decrypt_client.decrypt(pidnum_enc)
-                else:
-                    p_dict["pidnum_decrypted"] = pidnum_enc
-                patient_map[p_dict["pcode"]] = p_dict
-        except Exception as e:
-            logger.error(f"Failed to join patient details: {e}")
-        finally:
-            con_db.close()
-            
-    # Merge patient details into waitlist records
-    for r in wait_records:
-        pcode = r.get("pcode")
-        if pcode in patient_map:
-            r["patient"] = patient_map[pcode]
-        else:
-            r["patient"] = None
-            
+
+    if source == "mtswait":
+        wait_records, active_table = fetch_today_queue("MTSWAIT", "WAIT", today)
+        if not wait_records:
+            return {"source": source, "active_table": active_table, "queue": []}
+
+        pcodes = list(set([r["pcode"] for r in wait_records if r.get("pcode")]))
+        patient_map = {}
+        if pcodes:
+            con_db = get_db_connection("MTSDB")
+            cur_db = con_db.cursor()
+            try:
+                pcode_placeholders = ",".join(["?" for _ in pcodes])
+                sql = f"SELECT PCODE, PNAME, PBIRTH, SEX, PIDNUM FROM PERSON WHERE PCODE IN ({pcode_placeholders})"
+                cur_db.execute(sql, tuple(pcodes))
+                cols_p = [desc[0] for desc in cur_db.description]
+                for r in cur_db.fetchall():
+                    p_dict = serialize_row(cols_p, r)
+                    pidnum_enc = p_dict.get("pidnum")
+                    if pidnum_enc and decrypt_client:
+                        p_dict["pidnum_decrypted"] = decrypt_client.decrypt(pidnum_enc)
+                    else:
+                        p_dict["pidnum_decrypted"] = pidnum_enc
+                    patient_map[p_dict["pcode"]] = p_dict
+            except Exception as e:
+                logger.error(f"Failed to join patient details: {e}")
+            finally:
+                con_db.close()
+
+        for r in wait_records:
+            pcode = r.get("pcode")
+            r["patient"] = patient_map.get(pcode)
+
+        return {"source": source, "active_table": active_table, "queue": wait_records}
+
+    if source == "mtsmtr":
+        mtr_records, active_table = fetch_today_queue("MTSMTR", "MTR", today)
+        return {"source": source, "active_table": active_table, "queue": mtr_records}
+
+
+@app.get("/api/waiting/compare")
+def compare_waiting():
+    """Returns today's current-date queue from both MTSWAIT and MTSMTR for side-by-side comparison."""
+    today = datetime.date.today()
+    wait_records, wait_table = fetch_today_queue("MTSWAIT", "WAIT", today)
+    mtr_records, mtr_table = fetch_today_queue("MTSMTR", "MTR", today)
     return {
-        "active_table": active_table,
-        "queue": wait_records
+        "date": today.isoformat(),
+        "mtswait": {"active_table": wait_table, "queue": wait_records},
+        "mtsmtr": {"active_table": mtr_table, "queue": mtr_records}
     }
 
 class WaitlistCreate(BaseModel):
@@ -452,6 +444,27 @@ def get_active_table(db_name: str, prefix: str) -> str:
         return tables[0]
     else:
         raise HTTPException(status_code=500, detail=f"No {prefix}[YYYY] tables found in {db_name} database.")
+
+
+def fetch_today_queue(db_name: str, prefix: str, today: datetime.date, limit: int = 50):
+    table_name = get_active_table(db_name, prefix)
+    con = get_db_connection(db_name)
+    cur = con.cursor()
+    rows = []
+    try:
+        if db_name == "MTSWAIT":
+            sql = f"SELECT FIRST {limit} PCODE, VISIDATE, RESID1, ROOMNM, DEPTNM, DOCTRNM, DOCTRCODE FROM {table_name} WHERE VISIDATE = ? ORDER BY RESID1 DESC"
+        else:
+            sql = f"SELECT FIRST {limit} PCODE, VISIDATE, VISITIME, PNAME, SEX, PBIRTH, AGE, FIN, SERIAL FROM {table_name} WHERE VISIDATE = ? ORDER BY VISITIME DESC"
+        cur.execute(sql, (today,))
+        cols = [desc[0] for desc in cur.description]
+        rows = [serialize_row(cols, r) for r in cur.fetchall()]
+    except Exception as e:
+        logger.error(f"Error querying today's queue from {db_name}.{table_name}: {e}")
+    finally:
+        con.close()
+    return rows, table_name
+
 
 def get_table_from_resid1(db_name: str, prefix: str, resid1: str) -> str:
     if len(resid1) >= 4 and resid1[:4].isdigit():
@@ -525,10 +538,10 @@ def check_in_patient(req: WaitlistCreate):
         # Insert ledger record
         sql_mtr = f"""
             INSERT INTO {mtr_table} 
-            ("#", PCODE, VISIDATE, VISITIME, PNAME, SEX, PBIRTH, AGE, FIN, SERIAL)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ("#", PCODE, VISIDATE, VISITIME, PNAME, SEX, PBIRTH, AGE, FIN, SERIAL, GUBUN)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
-        cur_mtr.execute(sql_mtr, (next_id, req.pcode, today, current_time_str, pname, sex, pbirth, age_str, '', 1))
+        cur_mtr.execute(sql_mtr, (next_id, req.pcode, today, current_time_str, pname, sex, pbirth, age_str, '', 1, '콜닥'))
         con_mtr.commit()
         logger.info(f"Created ledger record in {mtr_table} with ID {next_id} for patient {req.pcode}")
     except Exception as e:
