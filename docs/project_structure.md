@@ -12,6 +12,7 @@ The workspace is organized as follows:
 c:\rest-api-server\
 ├── DecryptWorker.cs      # C# source code for the 32-bit decryption worker
 ├── DecryptWorker.exe     # Compiled 32-bit decryption worker executable
+├── config.py             # Centralized settings, credentials, and check-in defaults
 ├── decryptor.py          # Python IPC thread-safe wrapper for DecryptWorker.exe
 ├── main.py               # Main FastAPI server with routes and DB logging wrappers
 ├── docs/                 # Documentation directory
@@ -25,7 +26,13 @@ c:\rest-api-server\
 
 ## 2. Core Components Walkthrough
 
-### 2.1. main.py (FastAPI Gateway)
+### 2.1. config.py (Centralized Configuration)
+A single configuration file loaded with fallback defaults and environment overrides:
+1. **Server Bindings**: Configures application binding IP and Port.
+2. **Database Settings**: Configures the Firebird root directory path, database user, and database password.
+3. **Clinic Defaults**: Configures fallback codes and names for doctors, rooms, and departments during checks.
+
+### 2.2. main.py (FastAPI Gateway)
 The main entry point of the server. It:
 1. **Configures the `fdb` Driver**: Configures the Firebird client driver's character set mapping dictionary at startup so that both character set `KSC_5601` (EUC-KR) and raw binary `NONE` columns decode correctly to `'cp949'` (Korean).
 2. **Registers DB Logging Wrappers**: Includes `LoggingConnection` and `LoggingCursor` proxy classes. These wrap default database objects to capture, time, and print all database queries and transaction states to the terminal in real-time.
@@ -42,21 +49,21 @@ The main entry point of the server. It:
    - `GET /api/visits/{pcode}`: Gathers billing ledger entries, weight, temperature, vaccinations, and treatment notes from the annual ledger tables (e.g. `MTR2025`) in `MTSMTR`.
 4. **Launches Uvicorn**: Includes a `__main__` entry to start the application using `uvicorn.run(...)` on `http://127.0.0.1:8000`.
 
-### 2.2. decryptor.py (IPC Decryptor Wrapper)
+### 2.3. decryptor.py (IPC Decryptor Wrapper)
 Acts as a mediator between Python's 64-bit environment and the 32-bit decryption worker.
 - Spawns `DecryptWorker.exe` as a persistent subprocess using `subprocess.Popen`.
 - Enforces thread safety by using a Python `threading.Lock` mutex, ensuring parallel API requests do not corrupt the standard input/output stream pipeline.
 - Handles robust stream parsing: filters out any debug logs (e.g. `DSTK_CRYPT_Decrypt Success`) written directly to standard output by the underlying native C++ DLL (`IndvInfmCrypto.dll`), and only parses protocol control packets starting with `OK:` or `ERROR:`.
 - Implements process health monitoring: checks the subprocess state before writing, and automatically revives the worker if it crashes.
 
-### 2.3. DecryptWorker.cs (C# x86 Worker Source)
+### 2.4. DecryptWorker.cs (C# x86 Worker Source)
 A C# console application compiled specifically for the 32-bit architecture (`x86`).
 - Directs its working directory to `C:\mts3` upon startup to load native assemblies and configuration files from the EMR directory.
 - Uses `DllImport` with `StdCall` calling convention to interface with the 32-bit native library `C:\mts3\IndvInfmCrypto.dll`.
 - Loads the crypt handle and sets the encryption key password to `icando00~`.
 - Enters a high-speed execution loop reading base64-encoded ciphertexts from `stdin`, executing `decodeBase64` and `decryptDataWithKey`, and writing the decrypted resident registration number (RRN) back to `stdout` in the format `OK:<RRN_VALUE>`.
 
-### 2.4. static/index.html (Visual EMR Dashboard)
+### 2.5. static/index.html (Visual EMR Dashboard)
 A single-page application using modern dark-mode aesthetics:
 - **Responsive Layout**: Designed with HTML5 and CSS Grid/Flexbox.
 - **Glassmorphism Styling**: Uses semi-transparent dark panels, vibrant turquoise accents, and sleek borders.

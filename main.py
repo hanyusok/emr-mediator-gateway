@@ -10,6 +10,13 @@ import datetime
 import logging
 import time
 
+from config import (
+    HOST, PORT, DB_DIR, DB_USER, DB_PASSWORD,
+    DEFAULT_ROOM_CODE, DEFAULT_ROOM_NAME,
+    DEFAULT_DEPT_CODE, DEFAULT_DEPT_NAME,
+    DEFAULT_DOCTOR_CODE, DEFAULT_DOCTOR_NAME
+)
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -123,15 +130,15 @@ class LoggingConnection:
 
 # Helper: Connect to Firebird DB
 def get_db_connection(db_name: str):
-    db_path = f"C:/mts3/db/{db_name}.FDB"
+    db_path = os.path.join(DB_DIR, f"{db_name}.FDB")
     if not os.path.exists(db_path):
         logger.error(f"[DB CONNECTION ERROR] Database file not found: {db_path}")
         raise HTTPException(status_code=500, detail=f"Database file not found: {db_path}")
     try:
         con = fdb.connect(
-            dsn=f"localhost:{db_path}",
-            user="SYSDBA",
-            password="masterkey"
+            dsn=f"{HOST}:{db_path}",
+            user=DB_USER,
+            password=DB_PASSWORD
         )
         return LoggingConnection(con, db_name)
     except Exception as e:
@@ -403,12 +410,12 @@ def get_waiting():
 
 class WaitlistCreate(BaseModel):
     pcode: int
-    roomcode: Optional[int] = 1
-    roomnm: Optional[str] = "제1진료실"
-    deptcode: Optional[str] = "14"
-    deptnm: Optional[str] = "가정의학과"
-    doctrcode: Optional[str] = "63221"
-    doctrnm: Optional[str] = "한유석"
+    roomcode: Optional[int] = DEFAULT_ROOM_CODE
+    roomnm: Optional[str] = DEFAULT_ROOM_NAME
+    deptcode: Optional[str] = DEFAULT_DEPT_CODE
+    deptnm: Optional[str] = DEFAULT_DEPT_NAME
+    doctrcode: Optional[str] = DEFAULT_DOCTOR_CODE
+    doctrnm: Optional[str] = DEFAULT_DOCTOR_NAME
 
 class WaitlistUpdate(BaseModel):
     roomcode: Optional[int] = None
@@ -773,5 +780,5 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 if __name__ == "__main__":
     import uvicorn
-    # Start the server on port 8000
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    # Start the server using configuration values
+    uvicorn.run(app, host=HOST, port=PORT)

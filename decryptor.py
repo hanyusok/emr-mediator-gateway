@@ -3,6 +3,7 @@ import threading
 import os
 import sys
 import logging
+from config import DECRYPT_WORKER_NAME
 
 logger = logging.getLogger("decryptor")
 logging.basicConfig(level=logging.INFO)
@@ -12,7 +13,7 @@ class Decryptor:
         if worker_path is None:
             # Default to the same directory as this file
             current_dir = os.path.dirname(os.path.abspath(__file__))
-            worker_path = os.path.join(current_dir, "DecryptWorker.exe")
+            worker_path = os.path.join(current_dir, DECRYPT_WORKER_NAME)
         
         self.worker_path = worker_path
         self._lock = threading.Lock()
