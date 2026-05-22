@@ -1,0 +1,777 @@
+import os
+import fdb
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
+from typing import List, Optional
+import datetime
+import logging
+import time
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
+logger = logging.getLogger("emr_api")
+
+# Configure fdb charset mappings BEFORE establishing connections.
+# This ensures CP949 bytes are correctly decoded into Unicode on all platforms.
+fdb.charset_map['NONE'] = 'cp949'
+fdb.charset_map[None] = 'cp949'
+fdb.charset_map['KSC_5601'] = 'cp949'
+
+# Import decryptor
+try:
+    from decryptor import get_decryptor
+    decrypt_client = get_decryptor()
+except Exception as e:
+    logger.critical(f"Failed to initialize decryptor: {e}")
+    decrypt_client = None
+
+app = FastAPI(
+    title="EMR Integration REST API Server",
+    description="REST API mediator for local Firebird EMR databases with native 32-bit decryption.",
+    version="1.0.0"
+)
+
+# Enable CORS for local testing/integration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Database Logging Wrappers
+class LoggingCursor:
+    def __init__(self, cursor, db_name: str):
+        self._cursor = cursor
+        self._db_name = db_name
+
+    def execute(self, query, params=None):
+        start_time = time.time()
+        params_str = f" | Params: {params}" if params else ""
+        logger.info(f"[DB QUERY] [{self._db_name}] SQL: {query.strip()}{params_str}")
+        try:
+            res = self._cursor.execute(query, params)
+            duration = (time.time() - start_time) * 1000
+            logger.info(f"[DB QUERY SUCCESS] [{self._db_name}] Took {duration:.2f}ms")
+            return res
+        except Exception as e:
+            duration = (time.time() - start_time) * 1000
+            logger.error(f"[DB QUERY FAILURE] [{self._db_name}] Took {duration:.2f}ms | Error: {e}")
+            raise
+
+    def fetchall(self):
+        return self._cursor.fetchall()
+
+    def fetchone(self):
+        return self._cursor.fetchone()
+
+    @property
+    def description(self):
+        return self._cursor.description
+
+    def __getattr__(self, name):
+        return getattr(self._cursor, name)
+
+class LoggingConnection:
+    def __init__(self, connection, db_name: str):
+        self._connection = connection
+        self._db_name = db_name
+        logger.info(f"[DB TRANSACTION] [{self._db_name}] Connection opened & transaction started")
+
+    def cursor(self):
+        return LoggingCursor(self._connection.cursor(), self._db_name)
+
+    def commit(self):
+        start_time = time.time()
+        logger.info(f"[DB TRANSACTION] [{self._db_name}] Committing...")
+        try:
+            self._connection.commit()
+            logger.info(f"[DB TRANSACTION SUCCESS] [{self._db_name}] Committed (took {(time.time() - start_time)*1000:.2f}ms)")
+        except Exception as e:
+            logger.error(f"[DB TRANSACTION FAILURE] [{self._db_name}] Commit failed: {e}")
+            raise
+
+    def rollback(self):
+        start_time = time.time()
+        logger.info(f"[DB TRANSACTION] [{self._db_name}] Rolling back...")
+        try:
+            self._connection.rollback()
+            logger.info(f"[DB TRANSACTION SUCCESS] [{self._db_name}] Rolled back (took {(time.time() - start_time)*1000:.2f}ms)")
+        except Exception as e:
+            logger.error(f"[DB TRANSACTION FAILURE] [{self._db_name}] Rollback failed: {e}")
+            raise
+
+    def close(self):
+        start_time = time.time()
+        logger.info(f"[DB TRANSACTION] [{self._db_name}] Closing connection...")
+        try:
+            self._connection.close()
+            logger.info(f"[DB TRANSACTION SUCCESS] [{self._db_name}] Connection closed (took {(time.time() - start_time)*1000:.2f}ms)")
+        except Exception as e:
+            logger.error(f"[DB TRANSACTION FAILURE] [{self._db_name}] Connection close failed: {e}")
+            raise
+
+    def __getattr__(self, name):
+        return getattr(self._connection, name)
+
+# Helper: Connect to Firebird DB
+def get_db_connection(db_name: str):
+    db_path = f"C:/mts3/db/{db_name}.FDB"
+    if not os.path.exists(db_path):
+        logger.error(f"[DB CONNECTION ERROR] Database file not found: {db_path}")
+        raise HTTPException(status_code=500, detail=f"Database file not found: {db_path}")
+    try:
+        con = fdb.connect(
+            dsn=f"localhost:{db_path}",
+            user="SYSDBA",
+            password="masterkey"
+        )
+        return LoggingConnection(con, db_name)
+    except Exception as e:
+        logger.error(f"[DB CONNECTION ERROR] Failed to connect to database {db_name}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to connect to database {db_name}: {e}")
+
+# Helper: Get all annual tables matching a prefix (e.g. CHT2025, WAIT2025)
+def get_annual_tables(db_name: str, prefix: str) -> List[str]:
+    try:
+        con = get_db_connection(db_name)
+        cur = con.cursor()
+        cur.execute("SELECT RDB$RELATION_NAME FROM RDB$RELATIONS WHERE RDB$SYSTEM_FLAG = 0")
+        tables = [r[0].strip() for r in cur.fetchall()]
+        con.close()
+        
+        # Filter tables matching prefix + 4 digits (e.g., CHT2024)
+        annual_tables = []
+        for t in tables:
+            if t.startswith(prefix) and len(t) == len(prefix) + 4:
+                year_part = t[len(prefix):]
+                if year_part.isdigit():
+                    annual_tables.append(t)
+        return sorted(annual_tables, reverse=True)
+    except Exception as e:
+        logger.error(f"Error finding annual tables in {db_name} for prefix {prefix}: {e}")
+        return []
+
+# Helper: JSON serializer for Date/Time objects
+def serialize_row(cols, vals):
+    row_dict = {}
+    for k, v in zip(cols, vals):
+        if isinstance(v, (datetime.date, datetime.datetime)):
+            row_dict[k.lower()] = v.isoformat()
+        elif isinstance(v, datetime.time):
+            row_dict[k.lower()] = v.strftime("%H:%M:%S")
+        elif isinstance(v, str):
+            row_dict[k.lower()] = v.strip()
+        else:
+            row_dict[k.lower()] = v
+    return row_dict
+
+# Endpoints
+@app.get("/api/schema")
+def get_schema():
+    """Dynamically returns the schema (tables, columns, types) of all four databases."""
+    databases = ["MTSDB", "MTSCHT", "MTSWAIT", "MTSMTR"]
+    schema_results = {}
+    
+    type_names = {
+        7: "SMALLINT", 8: "INTEGER", 10: "FLOAT", 12: "DATE", 13: "TIME", 
+        14: "CHAR", 16: "BIGINT", 27: "DOUBLE", 35: "TIMESTAMP", 37: "VARCHAR", 261: "BLOB"
+    }
+    
+    for db in databases:
+        try:
+            con = get_db_connection(db)
+            cur = con.cursor()
+            query = """
+                SELECT rf.RDB$RELATION_NAME, rf.RDB$FIELD_NAME, f.RDB$FIELD_TYPE, f.RDB$FIELD_LENGTH
+                FROM RDB$RELATION_FIELDS rf
+                JOIN RDB$FIELDS f ON rf.RDB$FIELD_SOURCE = f.RDB$FIELD_NAME
+                JOIN RDB$RELATIONS r ON rf.RDB$RELATION_NAME = r.RDB$RELATION_NAME
+                WHERE r.RDB$SYSTEM_FLAG = 0
+                ORDER BY rf.RDB$RELATION_NAME, rf.RDB$FIELD_POSITION
+            """
+            cur.execute(query)
+            db_schema = {}
+            for r in cur.fetchall():
+                tbl = r[0].strip()
+                fld = r[1].strip()
+                typ = r[2]
+                length = r[3]
+                typ_name = type_names.get(typ, f"UNKNOWN ({typ})")
+                
+                if tbl not in db_schema:
+                    db_schema[tbl] = []
+                db_schema[tbl].append({
+                    "column": fld,
+                    "type": typ_name,
+                    "length": length
+                })
+            con.close()
+            schema_results[db] = db_schema
+        except Exception as e:
+            schema_results[db] = {"error": str(e)}
+            
+    return schema_results
+
+@app.get("/api/patients")
+def get_patients(
+    pname: Optional[str] = Query(None, description="Filter by Patient Name"),
+    pcode: Optional[int] = Query(None, description="Filter by exact Patient Code"),
+    limit: int = Query(50, description="Limit records returned")
+):
+    """Queries MTSDB.PERSON table and decrypts PIDNUM fields on-the-fly."""
+    con = get_db_connection("MTSDB")
+    cur = con.cursor()
+    
+    try:
+        sql = "SELECT PCODE, PNAME, PBIRTH, PIDNUM, SEX, LASTCHECK, PHONENUM FROM PERSON"
+        params = []
+        conditions = []
+        
+        # We need to see if PHONENUM exists in PERSON table. Since we don't know for sure, 
+        # let's select it. If it fails, we fall back.
+        # Wait, the column list we printed earlier had:
+        # PCODE, FCODE, PNAME, PBIRTH, PIDNUM, SEX, RELATION, LASTCHECK, SEARCHID, ...
+        # Let's check if PHONENUM exists in PERSON. The column list had:
+        # 'SEARCHID': '030926-3', 'PCCHECK': None, ...
+        # Oh, PHONENUM was in MTSMTR tables but was it in PERSON? Let's check PERSON column names.
+        # It had PCODE, FCODE, PNAME, PBIRTH, PIDNUM, SEX, RELATION, RELATION2, CRIPPLED, BOHUN, BP, BLOODTYPE, LASTCHECK...
+        # Wait, was PHONENUM in PERSON? No, it wasn't in the list printed earlier!
+        # Let's select only: PCODE, PNAME, PBIRTH, PIDNUM, SEX, LASTCHECK.
+        sql = "SELECT PCODE, PNAME, PBIRTH, PIDNUM, SEX, LASTCHECK FROM PERSON"
+        
+        if pcode is not None:
+            conditions.append("PCODE = ?")
+            params.append(pcode)
+        if pname:
+            conditions.append("PNAME LIKE ?")
+            params.append(f"%{pname}%")
+            
+        if conditions:
+            sql += " WHERE " + " AND ".join(conditions)
+            
+        sql += f" ORDER BY PCODE DESC"
+        
+        # Firebird 2.5 uses "FIRST N" instead of "LIMIT N"
+        sql = sql.replace("SELECT", f"SELECT FIRST {limit}")
+        
+        cur.execute(sql, tuple(params))
+        cols = [desc[0] for desc in cur.description]
+        rows = cur.fetchall()
+        
+        results = []
+        for r in rows:
+            p_dict = serialize_row(cols, r)
+            # Decrypt the resident number if present
+            pidnum_enc = p_dict.get("pidnum")
+            if pidnum_enc and decrypt_client:
+                p_dict["pidnum_decrypted"] = decrypt_client.decrypt(pidnum_enc)
+            else:
+                p_dict["pidnum_decrypted"] = pidnum_enc
+            results.append(p_dict)
+            
+        con.close()
+        return results
+    except Exception as e:
+        con.close()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/patients/{pcode}")
+def get_patient_detail(pcode: int):
+    """Fetches details for a single patient, including their vitals."""
+    con_db = get_db_connection("MTSDB")
+    cur_db = con_db.cursor()
+    
+    try:
+        # Query patient
+        cur_db.execute("SELECT PCODE, PNAME, PBIRTH, PIDNUM, SEX, LASTCHECK FROM PERSON WHERE PCODE = ?", (pcode,))
+        patient = cur_db.fetchone()
+        if not patient:
+            con_db.close()
+            raise HTTPException(status_code=404, detail="Patient not found")
+            
+        cols_db = [desc[0] for desc in cur_db.description]
+        patient_dict = serialize_row(cols_db, patient)
+        
+        # Decrypt RRN
+        pidnum_enc = patient_dict.get("pidnum")
+        if pidnum_enc and decrypt_client:
+            patient_dict["pidnum_decrypted"] = decrypt_client.decrypt(pidnum_enc)
+        else:
+            patient_dict["pidnum_decrypted"] = pidnum_enc
+            
+        # Query Vitals from CHECK_VITAL in MTSDB
+        cur_db.execute("SELECT VISIDATE, CHKTIME, WEIGHT, HEIGHT, TEMPERATUR, PULSE, SYSTOLIC, DIASTOLIC FROM CHECK_VITAL WHERE PCODE = ? ORDER BY VISIDATE DESC, CHKTIME DESC", (pcode,))
+        vitals_rows = cur_db.fetchall()
+        cols_v = [desc[0] for desc in cur_db.description]
+        
+        vitals_list = []
+        for v in vitals_rows:
+            vitals_list.append(serialize_row(cols_v, v))
+            
+        patient_dict["vitals"] = vitals_list
+        con_db.close()
+        return patient_dict
+    except HTTPException:
+        raise
+    except Exception as e:
+        con_db.close()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/waiting")
+def get_waiting():
+    """Queries the active waitlist from the latest non-empty WAIT[YYYY] table, joining patient names."""
+    # Find all WAIT[YYYY] tables
+    tables = get_annual_tables("MTSWAIT", "WAIT")
+    if not tables:
+        raise HTTPException(status_code=500, detail="No WAIT[YYYY] tables found in MTSWAIT database.")
+        
+    con_wait = get_db_connection("MTSWAIT")
+    cur_wait = con_wait.cursor()
+    
+    active_table = None
+    wait_records = []
+    
+    # Iterate from latest year backwards to find the latest table with records
+    for t in tables:
+        try:
+            cur_wait.execute(f"SELECT COUNT(*) FROM {t}")
+            cnt = cur_wait.fetchone()[0]
+            if cnt > 0:
+                active_table = t
+                # Fetch recent 50 waiting records
+                cur_wait.execute(f"SELECT FIRST 50 PCODE, VISIDATE, RESID1, ROOMNM, DEPTNM, DOCTRNM, DOCTRCODE FROM {t} ORDER BY VISIDATE DESC, RESID1 DESC")
+                cols = [desc[0] for desc in cur_wait.description]
+                wait_records = [serialize_row(cols, r) for r in cur_wait.fetchall()]
+                break
+        except Exception as e:
+            logger.warning(f"Skipping table {t} due to error: {e}")
+            continue
+            
+    con_wait.close()
+    
+    if not active_table or not wait_records:
+        return {"active_table": None, "queue": []}
+        
+    # Extract unique patient codes
+    pcodes = list(set([r["pcode"] for r in wait_records if r.get("pcode")]))
+    
+    # Query patient details from MTSDB to join names and birth dates
+    patient_map = {}
+    if pcodes:
+        con_db = get_db_connection("MTSDB")
+        cur_db = con_db.cursor()
+        try:
+            # Construct IN clause
+            pcode_placeholders = ",".join(["?" for _ in pcodes])
+            sql = f"SELECT PCODE, PNAME, PBIRTH, SEX, PIDNUM FROM PERSON WHERE PCODE IN ({pcode_placeholders})"
+            cur_db.execute(sql, tuple(pcodes))
+            cols_p = [desc[0] for desc in cur_db.description]
+            for r in cur_db.fetchall():
+                p_dict = serialize_row(cols_p, r)
+                # Decrypt RRN for waitlist detail if needed
+                pidnum_enc = p_dict.get("pidnum")
+                if pidnum_enc and decrypt_client:
+                    p_dict["pidnum_decrypted"] = decrypt_client.decrypt(pidnum_enc)
+                else:
+                    p_dict["pidnum_decrypted"] = pidnum_enc
+                patient_map[p_dict["pcode"]] = p_dict
+        except Exception as e:
+            logger.error(f"Failed to join patient details: {e}")
+        finally:
+            con_db.close()
+            
+    # Merge patient details into waitlist records
+    for r in wait_records:
+        pcode = r.get("pcode")
+        if pcode in patient_map:
+            r["patient"] = patient_map[pcode]
+        else:
+            r["patient"] = None
+            
+    return {
+        "active_table": active_table,
+        "queue": wait_records
+    }
+
+class WaitlistCreate(BaseModel):
+    pcode: int
+    roomcode: Optional[int] = 1
+    roomnm: Optional[str] = "제1진료실"
+    deptcode: Optional[str] = "14"
+    deptnm: Optional[str] = "가정의학과"
+    doctrcode: Optional[str] = "63221"
+    doctrnm: Optional[str] = "한유석"
+
+class WaitlistUpdate(BaseModel):
+    roomcode: Optional[int] = None
+    roomnm: Optional[str] = None
+    deptcode: Optional[str] = None
+    deptnm: Optional[str] = None
+    doctrcode: Optional[str] = None
+    doctrnm: Optional[str] = None
+
+def calculate_age_str(birthdate: datetime.date) -> str:
+    if not birthdate:
+        return ""
+    today = datetime.date.today()
+    years = today.year - birthdate.year
+    months = today.month - birthdate.month
+    if months < 0:
+        years -= 1
+        months += 12
+    if years > 0:
+        if months > 0:
+            return f"{years}y {months}m "
+        else:
+            return f"{years}y "
+    else:
+        return f"{months}m "
+
+def get_active_table(db_name: str, prefix: str) -> str:
+    current_year = datetime.date.today().year
+    table_name = f"{prefix}{current_year}"
+    tables = get_annual_tables(db_name, prefix)
+    if table_name in tables:
+        return table_name
+    elif tables:
+        return tables[0]
+    else:
+        raise HTTPException(status_code=500, detail=f"No {prefix}[YYYY] tables found in {db_name} database.")
+
+def get_table_from_resid1(db_name: str, prefix: str, resid1: str) -> str:
+    if len(resid1) >= 4 and resid1[:4].isdigit():
+        year = resid1[:4]
+        tbl = f"{prefix}{year}"
+        tables = get_annual_tables(db_name, prefix)
+        if tbl in tables:
+            return tbl
+    return get_active_table(db_name, prefix)
+
+
+@app.post("/api/waiting")
+def check_in_patient(req: WaitlistCreate):
+    """Checks in a patient by creating records in both MTSWAIT (live queue) and MTSMTR (ledger)."""
+    # 1. Fetch patient demographics from MTSDB
+    con_db = get_db_connection("MTSDB")
+    cur_db = con_db.cursor()
+    try:
+        cur_db.execute("SELECT PCODE, PNAME, PBIRTH, SEX FROM PERSON WHERE PCODE = ?", (req.pcode,))
+        patient = cur_db.fetchone()
+        if not patient:
+            raise HTTPException(status_code=404, detail=f"Patient with code {req.pcode} not found.")
+        pname, pbirth, sex = patient[1], patient[2], patient[3]
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching patient {req.pcode}: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+    finally:
+        con_db.close()
+
+    # 2. Determine active table names
+    wait_table = get_active_table("MTSWAIT", "WAIT")
+    mtr_table = get_active_table("MTSMTR", "MTR")
+
+    today = datetime.date.today()
+    now_time = datetime.datetime.now().time()
+    current_time_str = now_time.strftime("%H:%M:%S")
+
+    # 3. Check if patient is already checked in today in MTSWAIT
+    con_wait = get_db_connection("MTSWAIT")
+    cur_wait = con_wait.cursor()
+    try:
+        cur_wait.execute(f"SELECT COUNT(*) FROM {wait_table} WHERE PCODE = ? AND VISIDATE = ?", (req.pcode, today))
+        if cur_wait.fetchone()[0] > 0:
+            raise HTTPException(status_code=400, detail=f"Patient {req.pcode} is already checked in for today.")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error checking waitlist duplicate: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+    finally:
+        con_wait.close()
+
+    # 4. Generate keys
+    # resid1 = YYYYMMDDHHMMPCODE
+    resid1 = f"{today.strftime('%Y%m%d')}{now_time.strftime('%H%M')}{req.pcode}"
+    # resid2 = YYYY-MM-DD
+    resid2 = today.strftime("%Y-%m-%d")
+    age_str = calculate_age_str(pbirth)
+
+    # 5. Insert into MTSMTR (Ledger) first (using generator for Primary Key)
+    con_mtr = get_db_connection("MTSMTR")
+    cur_mtr = con_mtr.cursor()
+    try:
+        # Get next sequential ID using the generator
+        generator_name = f"GEN_{mtr_table}_SEQ"
+        cur_mtr.execute(f"SELECT GEN_ID({generator_name}, 1) FROM RDB$DATABASE")
+        next_id = cur_mtr.fetchone()[0]
+
+        # Insert ledger record
+        sql_mtr = f"""
+            INSERT INTO {mtr_table} 
+            ("#", PCODE, VISIDATE, VISITIME, PNAME, SEX, PBIRTH, AGE, FIN, SERIAL)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        cur_mtr.execute(sql_mtr, (next_id, req.pcode, today, current_time_str, pname, sex, pbirth, age_str, '', 1))
+        con_mtr.commit()
+        logger.info(f"Created ledger record in {mtr_table} with ID {next_id} for patient {req.pcode}")
+    except Exception as e:
+        logger.error(f"Error inserting into MTSMTR: {e}")
+        con_mtr.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to create ledger record in MTSMTR: {e}")
+    finally:
+        con_mtr.close()
+
+    # 6. Insert into MTSWAIT (Live wait queue)
+    con_wait = get_db_connection("MTSWAIT")
+    cur_wait = con_wait.cursor()
+    try:
+        sql_wait = f"""
+            INSERT INTO {wait_table} 
+            (PCODE, VISIDATE, RESID1, RESID2, ROOMCODE, ROOMNM, DEPTCODE, DEPTNM, DOCTRCODE, DOCTRNM, GOODOC)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        cur_wait.execute(sql_wait, (
+            req.pcode, today, resid1, resid2, 
+            req.roomcode, req.roomnm, 
+            req.deptcode, req.deptnm, 
+            req.doctrcode, req.doctrnm,
+            ''
+        ))
+        con_wait.commit()
+        logger.info(f"Created queue record in {wait_table} with RESID1 {resid1} for patient {req.pcode}")
+    except Exception as e:
+        logger.error(f"Error inserting into MTSWAIT: {e}")
+        con_wait.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to check in patient in MTSWAIT queue: {e}")
+    finally:
+        con_wait.close()
+
+    return {
+        "status": "success",
+        "message": f"Patient {pname} checked in successfully.",
+        "resid1": resid1,
+        "pcode": req.pcode
+    }
+
+@app.delete("/api/waiting/{resid1}")
+def remove_from_waitlist(resid1: str):
+    wait_table = get_table_from_resid1("MTSWAIT", "WAIT", resid1)
+    mtr_table = get_table_from_resid1("MTSMTR", "MTR", resid1)
+
+    # 1. Find waitlist entry details
+    con_wait = get_db_connection("MTSWAIT")
+    cur_wait = con_wait.cursor()
+    try:
+        cur_wait.execute(f"SELECT PCODE, VISIDATE FROM {wait_table} WHERE RESID1 = ?", (resid1,))
+        row = cur_wait.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Waitlist entry not found.")
+        pcode, visidate = row[0], row[1]
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error querying waitlist entry {resid1}: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+    finally:
+        con_wait.close()
+
+    # 2. Delete from MTSWAIT
+    con_wait = get_db_connection("MTSWAIT")
+    cur_wait = con_wait.cursor()
+    try:
+        cur_wait.execute(f"DELETE FROM {wait_table} WHERE RESID1 = ?", (resid1,))
+        con_wait.commit()
+        logger.info(f"Deleted queue record {resid1} from {wait_table}")
+    except Exception as e:
+        logger.error(f"Error deleting queue record {resid1}: {e}")
+        con_wait.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete queue record: {e}")
+    finally:
+        con_wait.close()
+
+    # 3. Check and conditionally delete from MTSMTR
+    con_mtr = get_db_connection("MTSMTR")
+    cur_mtr = con_mtr.cursor()
+    try:
+        # Check if a ledger record exists and its FIN state
+        cur_mtr.execute(f"SELECT FIN FROM {mtr_table} WHERE PCODE = ? AND VISIDATE = ?", (pcode, visidate))
+        mtr_row = cur_mtr.fetchone()
+        if mtr_row:
+            fin_val = mtr_row[0]
+            # If treatment has NOT completed (FIN is empty or null)
+            if not fin_val or fin_val.strip() == "":
+                cur_mtr.execute(f"DELETE FROM {mtr_table} WHERE PCODE = ? AND VISIDATE = ?", (pcode, visidate))
+                con_mtr.commit()
+                logger.info(f"Cancelled ledger record in {mtr_table} for patient {pcode} on {visidate} (FIN is empty)")
+            else:
+                logger.info(f"Kept ledger record in {mtr_table} for patient {pcode} on {visidate} (FIN is completed: {repr(fin_val)})")
+    except Exception as e:
+        logger.error(f"Error handling ledger cancellation: {e}")
+        con_mtr.rollback()
+        # Non-critical, do not crash since queue record is already deleted
+    finally:
+        con_mtr.close()
+
+    return {"status": "success", "message": "Patient removed from waitlist."}
+
+@app.put("/api/waiting/{resid1}")
+def update_waitlist_assignment(resid1: str, req: WaitlistUpdate):
+    wait_table = get_table_from_resid1("MTSWAIT", "WAIT", resid1)
+
+    # Verify record exists
+    con_wait = get_db_connection("MTSWAIT")
+    cur_wait = con_wait.cursor()
+    try:
+        cur_wait.execute(f"SELECT COUNT(*) FROM {wait_table} WHERE RESID1 = ?", (resid1,))
+        if cur_wait.fetchone()[0] == 0:
+            raise HTTPException(status_code=404, detail="Waitlist entry not found.")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error verifying waitlist entry {resid1}: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+    finally:
+        con_wait.close()
+
+    # Build update dynamic SQL
+    updates = []
+    params = []
+    
+    if req.roomcode is not None:
+        updates.append("ROOMCODE = ?")
+        params.append(req.roomcode)
+    if req.roomnm is not None:
+        updates.append("ROOMNM = ?")
+        params.append(req.roomnm)
+    if req.deptcode is not None:
+        updates.append("DEPTCODE = ?")
+        params.append(req.deptcode)
+    if req.deptnm is not None:
+        updates.append("DEPTNM = ?")
+        params.append(req.deptnm)
+    if req.doctrcode is not None:
+        updates.append("DOCTRCODE = ?")
+        params.append(req.doctrcode)
+    if req.doctrnm is not None:
+        updates.append("DOCTRNM = ?")
+        params.append(req.doctrnm)
+
+    if not updates:
+        raise HTTPException(status_code=400, detail="No update fields provided.")
+
+    params.append(resid1)
+    sql = f"UPDATE {wait_table} SET {', '.join(updates)} WHERE RESID1 = ?"
+
+    con_wait = get_db_connection("MTSWAIT")
+    cur_wait = con_wait.cursor()
+    try:
+        cur_wait.execute(sql, tuple(params))
+        con_wait.commit()
+        logger.info(f"Updated waitlist entry {resid1} assignments")
+    except Exception as e:
+        logger.error(f"Error updating waitlist entry {resid1}: {e}")
+        con_wait.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to update waitlist entry: {e}")
+    finally:
+        con_wait.close()
+
+    return {"status": "success", "message": "Waitlist entry updated successfully."}
+
+@app.get("/api/charts/{pcode}")
+def get_charts(pcode: int):
+    """Returns all medical chart records (symptoms, diagnoses, prescriptions) for a patient."""
+    tables = get_annual_tables("MTSCHT", "CHT")
+    if not tables:
+        return []
+        
+    con_cht = get_db_connection("MTSCHT")
+    cur_cht = con_cht.cursor()
+    
+    all_charts = []
+    
+    # Scan through CHT[YYYY] tables for patient records
+    for t in tables:
+        try:
+            # We select common fields. If columns differ slightly, we catch error
+            # CHT has: VISIDATE, VISITIME, SYMPTOM, D1, D2, DOC
+            sql = f"SELECT VISIDATE, VISITIME, SYMPTOM, D1, D2, D3, D4, DOC FROM {t} WHERE PCODE = ? ORDER BY VISIDATE DESC"
+            cur_cht.execute(sql, (pcode,))
+            cols = [desc[0] for desc in cur_cht.description]
+            rows = cur_cht.fetchall()
+            for r in rows:
+                c_dict = serialize_row(cols, r)
+                c_dict["source_table"] = t
+                all_charts.append(c_dict)
+        except Exception as e:
+            # Table might not contain fields or table doesn't exist
+            continue
+            
+    con_cht.close()
+    
+    # Sort charts globally by visit date descending
+    all_charts.sort(key=lambda x: x.get("visidate", ""), reverse=True)
+    return all_charts
+
+@app.get("/api/visits/{pcode}")
+def get_visits(pcode: int):
+    """Returns historical billing, vaccinations, physical vitals, and memos from MTSMTR."""
+    tables = get_annual_tables("MTSMTR", "MTR")
+    if not tables:
+        return []
+        
+    con_mtr = get_db_connection("MTSMTR")
+    cur_mtr = con_mtr.cursor()
+    
+    all_visits = []
+    
+    for t in tables:
+        try:
+            # MTR contains: VISIDATE, VISITIME, WEIGHT, HEIGHT, TEMPERATUR, PULSE, SYSTOLIC, DIASTOLIC,
+            # TOTALFEE, SELFEE, GENFEE, AGE, VAX, INJ1
+            sql = f"""
+                SELECT VISIDATE, VISITIME, WEIGHT, HEIGHT, TEMPERATUR, PULSE, 
+                       SYSTOLIC, DIASTOLIC, TOTALFEE, SELFEE, GENFEE, AGE, 
+                       VAX, VAX2, INJ1, INJ2 
+                FROM {t} WHERE PCODE = ? 
+                ORDER BY VISIDATE DESC
+            """
+            cur_mtr.execute(sql, (pcode,))
+            cols = [desc[0] for desc in cur_mtr.description]
+            rows = cur_mtr.fetchall()
+            for r in rows:
+                v_dict = serialize_row(cols, r)
+                v_dict["source_table"] = t
+                all_visits.append(v_dict)
+        except Exception as e:
+            continue
+            
+    con_mtr.close()
+    
+    all_visits.sort(key=lambda x: x.get("visidate", ""), reverse=True)
+    return all_visits
+
+# Serve single-page dashboard at root
+@app.get("/")
+def read_index():
+    static_index = os.path.join("static", "index.html")
+    if not os.path.exists(static_index):
+        raise HTTPException(status_code=404, detail=f"static/index.html not found.")
+    return FileResponse(static_index)
+
+# Mount static folder
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+if __name__ == "__main__":
+    import uvicorn
+    # Start the server on port 8000
+    uvicorn.run(app, host="127.0.0.1", port=8000)
