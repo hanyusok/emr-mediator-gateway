@@ -574,29 +574,45 @@ class CloudMtrCreate(BaseModel):
 def create_mtr_cloud(req: CloudMtrCreate):
     """Create an MTSMTR ledger record (cloud/client-initiated).
 
-    Uses client-provided `pname`/`pbirth` when present to reduce server-side lookups.
+    Verifies that the patient exists in the PERSON table (MTSDB) before creating the record.
     """
-    # Prefer client-provided demographics; otherwise fetch from MTSDB
-    pname = req.pname
-    pbirth = req.pbirth
-    sex = None
-
-    if not (pname and pbirth):
-        con_db = get_db_connection("MTSDB")
-        cur_db = con_db.cursor()
-        try:
-            cur_db.execute("SELECT PCODE, PNAME, PBIRTH, SEX FROM PERSON WHERE PCODE = ?", (req.pcode,))
-            patient = cur_db.fetchone()
-            if not patient:
-                raise HTTPException(status_code=404, detail=f"Patient with code {req.pcode} not found.")
-            pname, pbirth, sex = patient[1], patient[2], patient[3]
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Error fetching patient {req.pcode}: {e}")
-            raise HTTPException(status_code=500, detail=f"Database error: {e}")
-        finally:
-            con_db.close()
+    con_db = get_db_connection("MTSDB")
+    cur_db = con_db.cursor()
+    try:
+        cur_db.execute("SELECT PCODE, PNAME, PBIRTH, SEX FROM PERSON WHERE PCODE = ?", (req.pcode,))
+        patient = cur_db.fetchone()
+        if not patient:
+            raise HTTPException(status_code=404, detail=f"Patient with code {req.pcode} not found in PERSON table.")
+        
+        db_pcode, db_pname, db_pbirth, db_sex = patient[0], patient[1], patient[2], patient[3]
+        
+        # If client provided pname/pbirth, verify they match EMR database records
+        if req.pname and req.pname.strip() != db_pname.strip():
+            raise HTTPException(status_code=400, detail="Provided patient name does not match EMR database records.")
+            
+        if req.pbirth:
+            # Handle possible types for db_pbirth (datetime.date, datetime.datetime, or string)
+            if isinstance(db_pbirth, (datetime.date, datetime.datetime)):
+                db_pbirth_date = db_pbirth if isinstance(db_pbirth, datetime.date) else db_pbirth.date()
+            else:
+                try:
+                    db_pbirth_date = datetime.datetime.strptime(str(db_pbirth).strip(), "%Y-%m-%d").date()
+                except ValueError:
+                    db_pbirth_date = None
+            
+            if db_pbirth_date and req.pbirth != db_pbirth_date:
+                raise HTTPException(status_code=400, detail="Provided birthdate does not match EMR database records.")
+                
+        pname = db_pname
+        pbirth = db_pbirth
+        sex = db_sex
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching/verifying patient {req.pcode}: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+    finally:
+        con_db.close()
 
     # Determine MTR table and time values
     mtr_table = get_active_table("MTSMTR", "MTR")
@@ -619,7 +635,7 @@ def create_mtr_cloud(req: CloudMtrCreate):
             ("#", PCODE, VISIDATE, VISITIME, PNAME, SEX, PBIRTH, AGE, FIN, SERIAL, GUBUN)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
-        cur_mtr.execute(sql_mtr, (next_id, req.pcode, today, current_time_str, pname, sex or '', pbirth, age_str, '', 1, '클라우드'))
+        cur_mtr.execute(sql_mtr, (next_id, req.pcode, today, current_time_str, pname, sex or '', pbirth, age_str, '', 1, '콜닥'))
         con_mtr.commit()
         logger.info(f"[CLOUD] Created ledger record in {mtr_table} with ID {next_id} for patient {req.pcode}")
     except Exception as e:
