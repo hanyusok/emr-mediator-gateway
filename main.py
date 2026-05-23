@@ -478,7 +478,10 @@ def get_table_from_resid1(db_name: str, prefix: str, resid1: str) -> str:
 
 @app.post("/api/waiting")
 def check_in_patient(req: WaitlistCreate):
-    """Checks in a patient by creating records in both MTSWAIT (live queue) and MTSMTR (ledger)."""
+    """Checks in a patient by creating a ledger record in MTSMTR only.
+
+    The live wait queue (MTSWAIT) is not modified by this endpoint.
+    """
     # 1. Fetch patient demographics from MTSDB
     con_db = get_db_connection("MTSDB")
     cur_db = con_db.cursor()
@@ -496,46 +499,26 @@ def check_in_patient(req: WaitlistCreate):
     finally:
         con_db.close()
 
-    # 2. Determine active table names
-    wait_table = get_active_table("MTSWAIT", "WAIT")
+    # Determine MTR table
     mtr_table = get_active_table("MTSMTR", "MTR")
 
     today = datetime.date.today()
     now_time = datetime.datetime.now().time()
     current_time_str = now_time.strftime("%H:%M:%S")
 
-    # 3. Check if patient is already checked in today in MTSWAIT
-    con_wait = get_db_connection("MTSWAIT")
-    cur_wait = con_wait.cursor()
-    try:
-        cur_wait.execute(f"SELECT COUNT(*) FROM {wait_table} WHERE PCODE = ? AND VISIDATE = ?", (req.pcode, today))
-        if cur_wait.fetchone()[0] > 0:
-            raise HTTPException(status_code=400, detail=f"Patient {req.pcode} is already checked in for today.")
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error checking waitlist duplicate: {e}")
-        raise HTTPException(status_code=500, detail=f"Database error: {e}")
-    finally:
-        con_wait.close()
-
-    # 4. Generate keys
-    # resid1 = YYYYMMDDHHMMPCODE
+    # Generate keys (resid1 kept for compatibility with clients if needed)
     resid1 = f"{today.strftime('%Y%m%d')}{now_time.strftime('%H%M')}{req.pcode}"
-    # resid2 = YYYY-MM-DD
     resid2 = today.strftime("%Y-%m-%d")
     age_str = calculate_age_str(pbirth)
 
-    # 5. Insert into MTSMTR (Ledger) first (using generator for Primary Key)
+    # Insert into MTSMTR (Ledger) only
     con_mtr = get_db_connection("MTSMTR")
     cur_mtr = con_mtr.cursor()
     try:
-        # Get next sequential ID using the generator
         generator_name = f"GEN_{mtr_table}_SEQ"
         cur_mtr.execute(f"SELECT GEN_ID({generator_name}, 1) FROM RDB$DATABASE")
         next_id = cur_mtr.fetchone()[0]
 
-        # Insert ledger record
         sql_mtr = f"""
             INSERT INTO {mtr_table} 
             ("#", PCODE, VISIDATE, VISITIME, PNAME, SEX, PBIRTH, AGE, FIN, SERIAL, GUBUN)
@@ -551,34 +534,10 @@ def check_in_patient(req: WaitlistCreate):
     finally:
         con_mtr.close()
 
-    # 6. Insert into MTSWAIT (Live wait queue)
-    con_wait = get_db_connection("MTSWAIT")
-    cur_wait = con_wait.cursor()
-    try:
-        sql_wait = f"""
-            INSERT INTO {wait_table} 
-            (PCODE, VISIDATE, RESID1, RESID2, ROOMCODE, ROOMNM, DEPTCODE, DEPTNM, DOCTRCODE, DOCTRNM, GOODOC)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """
-        cur_wait.execute(sql_wait, (
-            req.pcode, today, resid1, resid2, 
-            req.roomcode, req.roomnm, 
-            req.deptcode, req.deptnm, 
-            req.doctrcode, req.doctrnm,
-            ''
-        ))
-        con_wait.commit()
-        logger.info(f"Created queue record in {wait_table} with RESID1 {resid1} for patient {req.pcode}")
-    except Exception as e:
-        logger.error(f"Error inserting into MTSWAIT: {e}")
-        con_wait.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to check in patient in MTSWAIT queue: {e}")
-    finally:
-        con_wait.close()
-
     return {
         "status": "success",
-        "message": f"Patient {pname} checked in successfully.",
+        "message": f"Patient {pname} ledger created successfully.",
+        "mtr_id": next_id,
         "resid1": resid1,
         "pcode": req.pcode
     }

@@ -71,6 +71,7 @@ function renderSchemaTree(schema) {
     Object.keys(schema).forEach(dbName => {
         const dbNode = document.createElement("div");
         dbNode.className = "tree-node";
+        dbNode.classList.remove("expanded");
 
         const dbLabel = document.createElement("div");
         dbLabel.className = "tree-label";
@@ -92,6 +93,7 @@ function renderSchemaTree(schema) {
             Object.keys(tables).forEach(tblName => {
                 const tblNode = document.createElement("div");
                 tblNode.className = "tree-node";
+                tblNode.classList.remove("expanded");
                 
                 const tblLabel = document.createElement("div");
                 tblLabel.className = "tree-label";

@@ -278,11 +278,14 @@ header {
     transition: transform var(--transition-speed);
 }
 
+.tree-node > .tree-children {
+    display: none;
+}
+
 .tree-children {
     margin-left: 1rem;
     border-left: 1px dashed rgba(255, 255, 255, 0.1);
     padding-left: 0.5rem;
-    display: none;
 }
 
 .tree-node.expanded > .tree-label > .tree-icon {
