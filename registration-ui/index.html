@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>간편 환자 대기 등록 (Instant Check-In)</title>
+    <title>셀프 체크인(Self Check-In)</title>
     <!-- Google Fonts -->
     <link
         href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap"
@@ -37,9 +37,14 @@
                 <input type="date" id="pbirth" required>
             </div>
 
-            <button type="submit" id="submit-btn">
-                <span>접수 등록하기</span>
-            </button>
+            <div class="button-group">
+                <button type="button" id="clear-btn" class="btn-secondary" onclick="handleClear()">
+                    <span>초기화</span>
+                </button>
+                <button type="submit" id="submit-btn" class="btn-primary">
+                    <span>접수 등록하기</span>
+                </button>
+            </div>
         </form>
 
         <div id="status-container" class="status-box"></div>
@@ -48,12 +53,21 @@
     <script>
         const GATEWAY_URL = "http://127.0.0.1:8000";
 
+        function handleClear() {
+            document.getElementById("pname").value = "";
+            document.getElementById("pbirth").value = "";
+            const statusBox = document.getElementById("status-container");
+            statusBox.className = "status-box";
+            statusBox.innerHTML = "";
+        }
+
         async function handleFormSubmit(event) {
             event.preventDefault();
 
             const nameInput = document.getElementById("pname");
             const birthInput = document.getElementById("pbirth");
             const submitBtn = document.getElementById("submit-btn");
+            const clearBtn = document.getElementById("clear-btn");
             const statusBox = document.getElementById("status-container");
 
             const pname = nameInput.value.trim();
@@ -63,6 +77,7 @@
 
             // Reset & Loading State
             submitBtn.disabled = true;
+            if (clearBtn) clearBtn.disabled = true;
             statusBox.className = "status-box loading";
             statusBox.innerHTML = '<div class="spinner"></div><span>환자 기록 검색 중...</span>';
 
@@ -142,6 +157,7 @@
                 `;
             } finally {
                 submitBtn.disabled = false;
+                if (clearBtn) clearBtn.disabled = false;
             }
         }
     </script>
