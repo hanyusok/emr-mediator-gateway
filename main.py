@@ -11,7 +11,7 @@ import logging
 import time
 
 from config import (
-    HOST, PORT, DB_DIR, DB_USER, DB_PASSWORD,
+    HOST, PORT, DB_HOST, DB_DIR, DB_USER, DB_PASSWORD,
     DEFAULT_ROOM_CODE, DEFAULT_ROOM_NAME,
     DEFAULT_DEPT_CODE, DEFAULT_DEPT_NAME,
     DEFAULT_DOCTOR_CODE, DEFAULT_DOCTOR_NAME
@@ -131,12 +131,13 @@ class LoggingConnection:
 # Helper: Connect to Firebird DB
 def get_db_connection(db_name: str):
     db_path = os.path.join(DB_DIR, f"{db_name}.FDB")
-    if not os.path.exists(db_path):
-        logger.error(f"[DB CONNECTION ERROR] Database file not found: {db_path}")
-        raise HTTPException(status_code=500, detail=f"Database file not found: {db_path}")
+    is_local = DB_HOST in ("127.0.0.1", "localhost")
+    if is_local and not os.path.exists(db_path):
+        logger.error(f"[DB CONNECTION ERROR] Database file not found locally: {db_path}")
+        raise HTTPException(status_code=500, detail=f"Database file not found locally: {db_path}")
     try:
         con = fdb.connect(
-            dsn=f"{HOST}:{db_path}",
+            dsn=f"{DB_HOST}:{db_path}",
             user=DB_USER,
             password=DB_PASSWORD
         )

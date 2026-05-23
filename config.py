@@ -5,8 +5,8 @@ HOST = os.getenv("EMR_GATEWAY_HOST", "127.0.0.1")
 PORT = int(os.getenv("EMR_GATEWAY_PORT", "8000"))
 
 # Database Credentials & Paths
+DB_HOST = os.getenv("EMR_DB_HOST", "192.168.0.12") #진료실컴 DAVID ip
 DB_DIR = os.getenv("EMR_DB_DIR", "C:/mts3/db")
-# DB_HOST = os.getenv("EMR_DB_HOST", "192.168.219.41") # 진료실컴 DAVID
 DB_PORT = int(os.getenv("EMR_DB_PORT", "3050"))
 DB_USER = os.getenv("EMR_DB_USER", "SYSDBA")
 DB_PASSWORD = os.getenv("EMR_DB_PASSWORD", "masterkey")
