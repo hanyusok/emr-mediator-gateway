@@ -459,6 +459,15 @@ def fetch_today_queue(db_name: str, prefix: str, today: datetime.date, limit: in
         cur.execute(sql, (today,))
         cols = [desc[0] for desc in cur.description]
         rows = [serialize_row(cols, r) for r in cur.fetchall()]
+        if db_name == "MTSMTR":
+            for r in rows:
+                vd = r.get("visidate", "")
+                vt = r.get("visitime", "")
+                pcode = r.get("pcode", "")
+                if vd and vt and pcode is not None:
+                    vd_clean = vd.replace("-", "")
+                    vt_clean = vt.replace(":", "")[:4]
+                    r["resid1"] = f"{vd_clean}{vt_clean}{pcode}"
     except Exception as e:
         logger.error(f"Error querying today's queue from {db_name}.{table_name}: {e}")
     finally:
@@ -623,60 +632,47 @@ def create_mtr_cloud(req: CloudMtrCreate):
 
 @app.delete("/api/waiting/{resid1}")
 def remove_from_waitlist(resid1: str):
-    wait_table = get_table_from_resid1("MTSWAIT", "WAIT", resid1)
     mtr_table = get_table_from_resid1("MTSMTR", "MTR", resid1)
 
-    # 1. Find waitlist entry details
-    con_wait = get_db_connection("MTSWAIT")
-    cur_wait = con_wait.cursor()
-    try:
-        cur_wait.execute(f"SELECT PCODE, VISIDATE FROM {wait_table} WHERE RESID1 = ?", (resid1,))
-        row = cur_wait.fetchone()
-        if not row:
-            raise HTTPException(status_code=404, detail="Waitlist entry not found.")
-        pcode, visidate = row[0], row[1]
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error querying waitlist entry {resid1}: {e}")
-        raise HTTPException(status_code=500, detail=f"Database error: {e}")
-    finally:
-        con_wait.close()
+    # Parse resid1 to retrieve pcode and visidate
+    # Format: YYYYMMDDHHMM<pcode>
+    if len(resid1) >= 13 and resid1[:12].isdigit():
+        try:
+            yr = int(resid1[:4])
+            mo = int(resid1[4:6])
+            dy = int(resid1[6:8])
+            visidate = datetime.date(yr, mo, dy)
+            pcode = int(resid1[12:])
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid waitlist entry ID format.")
+    else:
+        raise HTTPException(status_code=400, detail="Invalid waitlist entry ID format.")
 
-    # 2. Delete from MTSWAIT
-    con_wait = get_db_connection("MTSWAIT")
-    cur_wait = con_wait.cursor()
-    try:
-        cur_wait.execute(f"DELETE FROM {wait_table} WHERE RESID1 = ?", (resid1,))
-        con_wait.commit()
-        logger.info(f"Deleted queue record {resid1} from {wait_table}")
-    except Exception as e:
-        logger.error(f"Error deleting queue record {resid1}: {e}")
-        con_wait.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to delete queue record: {e}")
-    finally:
-        con_wait.close()
-
-    # 3. Check and conditionally delete from MTSMTR
+    # Delete from MTSMTR
     con_mtr = get_db_connection("MTSMTR")
     cur_mtr = con_mtr.cursor()
     try:
         # Check if a ledger record exists and its FIN state
         cur_mtr.execute(f"SELECT FIN FROM {mtr_table} WHERE PCODE = ? AND VISIDATE = ?", (pcode, visidate))
         mtr_row = cur_mtr.fetchone()
-        if mtr_row:
-            fin_val = mtr_row[0]
-            # If treatment has NOT completed (FIN is empty or null)
-            if not fin_val or fin_val.strip() == "":
-                cur_mtr.execute(f"DELETE FROM {mtr_table} WHERE PCODE = ? AND VISIDATE = ?", (pcode, visidate))
-                con_mtr.commit()
-                logger.info(f"Cancelled ledger record in {mtr_table} for patient {pcode} on {visidate} (FIN is empty)")
-            else:
-                logger.info(f"Kept ledger record in {mtr_table} for patient {pcode} on {visidate} (FIN is completed: {repr(fin_val)})")
+        if not mtr_row:
+            raise HTTPException(status_code=404, detail="Waitlist record not found in MTSMTR.")
+            
+        fin_val = mtr_row[0]
+        # If treatment has NOT completed (FIN is empty or null)
+        if not fin_val or fin_val.strip() == "":
+            cur_mtr.execute(f"DELETE FROM {mtr_table} WHERE PCODE = ? AND VISIDATE = ?", (pcode, visidate))
+            con_mtr.commit()
+            logger.info(f"Cancelled ledger record in {mtr_table} for patient {pcode} on {visidate} (FIN is empty)")
+        else:
+            logger.info(f"Kept ledger record in {mtr_table} for patient {pcode} on {visidate} (FIN is completed: {repr(fin_val)})")
+            raise HTTPException(status_code=400, detail="Cannot delete a completed treatment record.")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error handling ledger cancellation: {e}")
         con_mtr.rollback()
-        # Non-critical, do not crash since queue record is already deleted
+        raise HTTPException(status_code=500, detail=f"Failed to delete waitlist record: {e}")
     finally:
         con_mtr.close()
 
@@ -684,64 +680,49 @@ def remove_from_waitlist(resid1: str):
 
 @app.put("/api/waiting/{resid1}")
 def update_waitlist_assignment(resid1: str, req: WaitlistUpdate):
-    wait_table = get_table_from_resid1("MTSWAIT", "WAIT", resid1)
+    mtr_table = get_table_from_resid1("MTSMTR", "MTR", resid1)
 
-    # Verify record exists
-    con_wait = get_db_connection("MTSWAIT")
-    cur_wait = con_wait.cursor()
-    try:
-        cur_wait.execute(f"SELECT COUNT(*) FROM {wait_table} WHERE RESID1 = ?", (resid1,))
-        if cur_wait.fetchone()[0] == 0:
-            raise HTTPException(status_code=404, detail="Waitlist entry not found.")
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error verifying waitlist entry {resid1}: {e}")
-        raise HTTPException(status_code=500, detail=f"Database error: {e}")
-    finally:
-        con_wait.close()
+    # Parse resid1 to retrieve pcode and visidate
+    if len(resid1) >= 13 and resid1[:12].isdigit():
+        try:
+            yr = int(resid1[:4])
+            mo = int(resid1[4:6])
+            dy = int(resid1[6:8])
+            visidate = datetime.date(yr, mo, dy)
+            pcode = int(resid1[12:])
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid waitlist entry ID format.")
+    else:
+        raise HTTPException(status_code=400, detail="Invalid waitlist entry ID format.")
 
-    # Build update dynamic SQL
+    # We only have DOC column in MTSMTR to represent the doctor
+    # If they passed doctrcode, we update DOC.
     updates = []
     params = []
     
-    if req.roomcode is not None:
-        updates.append("ROOMCODE = ?")
-        params.append(req.roomcode)
-    if req.roomnm is not None:
-        updates.append("ROOMNM = ?")
-        params.append(req.roomnm)
-    if req.deptcode is not None:
-        updates.append("DEPTCODE = ?")
-        params.append(req.deptcode)
-    if req.deptnm is not None:
-        updates.append("DEPTNM = ?")
-        params.append(req.deptnm)
     if req.doctrcode is not None:
-        updates.append("DOCTRCODE = ?")
+        updates.append("DOC = ?")
         params.append(req.doctrcode)
-    if req.doctrnm is not None:
-        updates.append("DOCTRNM = ?")
-        params.append(req.doctrnm)
 
+    # If they updated other fields that don't exist in MTSMTR, we can just return success
     if not updates:
-        raise HTTPException(status_code=400, detail="No update fields provided.")
+        return {"status": "success", "message": "No modifiable fields for MTSMTR provided."}
 
-    params.append(resid1)
-    sql = f"UPDATE {wait_table} SET {', '.join(updates)} WHERE RESID1 = ?"
+    params.extend([pcode, visidate])
+    sql = f"UPDATE {mtr_table} SET {', '.join(updates)} WHERE PCODE = ? AND VISIDATE = ?"
 
-    con_wait = get_db_connection("MTSWAIT")
-    cur_wait = con_wait.cursor()
+    con_mtr = get_db_connection("MTSMTR")
+    cur_mtr = con_mtr.cursor()
     try:
-        cur_wait.execute(sql, tuple(params))
-        con_wait.commit()
-        logger.info(f"Updated waitlist entry {resid1} assignments")
+        cur_mtr.execute(sql, tuple(params))
+        con_mtr.commit()
+        logger.info(f"Updated MTSMTR doctor assignment for patient {pcode} on {visidate}")
     except Exception as e:
-        logger.error(f"Error updating waitlist entry {resid1}: {e}")
-        con_wait.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to update waitlist entry: {e}")
+        logger.error(f"Error updating MTSMTR: {e}")
+        con_mtr.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to update ledger record: {e}")
     finally:
-        con_wait.close()
+        con_mtr.close()
 
     return {"status": "success", "message": "Waitlist entry updated successfully."}
 

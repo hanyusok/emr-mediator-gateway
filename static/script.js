@@ -31,8 +31,7 @@ function fetchWaitlist() {
                 li.className = "waitlist-item";
 
                 const pName = item.pname || (item.patient ? item.patient.pname : `Code: ${item.pcode}`);
-                const pNameEscaped = JSON.stringify(pName);
-                const time = item.visitime || item.visitime || '';
+                const time = item.visitime || '';
                 const extra = item.fin ? `FIN:${item.fin}` : '';
 
                 li.innerHTML = `
@@ -42,9 +41,19 @@ function fetchWaitlist() {
                     </div>
                     <div class="waitlist-actions">
                         <span style="color:var(--text-muted);">MTR</span>
-                        <button class="delete-btn" onclick="deleteFromWaitlist(event, '${item.resid1}', ${pNameEscaped})">삭제</button>
+                        <button class="delete-btn">삭제</button>
                     </div>
                 `;
+
+                // Add click handler to open patient details when the card is clicked
+                li.onclick = () => selectPatient(item.pcode);
+
+                // Add click handler specifically to the delete button
+                const deleteBtn = li.querySelector(".delete-btn");
+                deleteBtn.onclick = (event) => {
+                    deleteFromWaitlist(event, item.resid1, pName);
+                };
+
                 waitListEl.appendChild(li);
             });
         })
