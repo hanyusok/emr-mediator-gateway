@@ -542,6 +542,85 @@ def check_in_patient(req: WaitlistCreate):
         "pcode": req.pcode
     }
 
+
+class CloudMtrCreate(BaseModel):
+    """API model for cloud clients to create MTR ledger records.
+
+    Clients may provide `pname` and `pbirth` to avoid an extra lookup in `MTSDB`.
+    The server will fall back to `MTSDB` if those fields are missing or invalid.
+    """
+    pcode: int
+    pname: Optional[str] = None
+    pbirth: Optional[datetime.date] = None
+    roomcode: Optional[int] = DEFAULT_ROOM_CODE
+    roomnm: Optional[str] = DEFAULT_ROOM_NAME
+    deptcode: Optional[str] = DEFAULT_DEPT_CODE
+    deptnm: Optional[str] = DEFAULT_DEPT_NAME
+    doctrcode: Optional[str] = DEFAULT_DOCTOR_CODE
+    doctrnm: Optional[str] = DEFAULT_DOCTOR_NAME
+
+
+@app.post("/api/mtr")
+def create_mtr_cloud(req: CloudMtrCreate):
+    """Create an MTSMTR ledger record (cloud/client-initiated).
+
+    Uses client-provided `pname`/`pbirth` when present to reduce server-side lookups.
+    """
+    # Prefer client-provided demographics; otherwise fetch from MTSDB
+    pname = req.pname
+    pbirth = req.pbirth
+    sex = None
+
+    if not (pname and pbirth):
+        con_db = get_db_connection("MTSDB")
+        cur_db = con_db.cursor()
+        try:
+            cur_db.execute("SELECT PCODE, PNAME, PBIRTH, SEX FROM PERSON WHERE PCODE = ?", (req.pcode,))
+            patient = cur_db.fetchone()
+            if not patient:
+                raise HTTPException(status_code=404, detail=f"Patient with code {req.pcode} not found.")
+            pname, pbirth, sex = patient[1], patient[2], patient[3]
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error fetching patient {req.pcode}: {e}")
+            raise HTTPException(status_code=500, detail=f"Database error: {e}")
+        finally:
+            con_db.close()
+
+    # Determine MTR table and time values
+    mtr_table = get_active_table("MTSMTR", "MTR")
+    today = datetime.date.today()
+    now_time = datetime.datetime.now().time()
+    current_time_str = now_time.strftime("%H:%M:%S")
+    resid1 = f"{today.strftime('%Y%m%d')}{now_time.strftime('%H%M')}{req.pcode}"
+    age_str = calculate_age_str(pbirth) if pbirth else ""
+
+    # Insert ledger record
+    con_mtr = get_db_connection("MTSMTR")
+    cur_mtr = con_mtr.cursor()
+    try:
+        generator_name = f"GEN_{mtr_table}_SEQ"
+        cur_mtr.execute(f"SELECT GEN_ID({generator_name}, 1) FROM RDB$DATABASE")
+        next_id = cur_mtr.fetchone()[0]
+
+        sql_mtr = f"""
+            INSERT INTO {mtr_table} 
+            ("#", PCODE, VISIDATE, VISITIME, PNAME, SEX, PBIRTH, AGE, FIN, SERIAL, GUBUN)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        cur_mtr.execute(sql_mtr, (next_id, req.pcode, today, current_time_str, pname, sex or '', pbirth, age_str, '', 1, '클라우드'))
+        con_mtr.commit()
+        logger.info(f"[CLOUD] Created ledger record in {mtr_table} with ID {next_id} for patient {req.pcode}")
+    except Exception as e:
+        logger.error(f"Error inserting into MTSMTR (cloud): {e}")
+        con_mtr.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to create ledger record in MTSMTR: {e}")
+    finally:
+        con_mtr.close()
+
+    return {"status": "success", "mtr_id": next_id, "resid1": resid1, "pcode": req.pcode}
+
 @app.delete("/api/waiting/{resid1}")
 def remove_from_waitlist(resid1: str):
     wait_table = get_table_from_resid1("MTSWAIT", "WAIT", resid1)

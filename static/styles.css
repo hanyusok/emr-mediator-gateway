@@ -244,6 +244,28 @@ header {
     font-weight: 500;
 }
 
+.waitlist-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.delete-btn {
+    background: rgba(239, 68, 68, 0.12);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: 999px;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: background var(--transition-speed), transform var(--transition-speed);
+}
+
+.delete-btn:hover {
+    background: rgba(239, 68, 68, 0.18);
+    transform: translateY(-1px);
+}
+
 /* Schema Tree Styling */
 .schema-container {
     overflow-y: auto;

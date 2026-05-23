@@ -3,6 +3,7 @@ const API_URL = ""; // Root URL since page is served from same host
 // Global states
 let databaseSchema = {};
 let selectedPcode = null;
+let selectedPatient = null;
 
 // On document ready
 window.addEventListener("DOMContentLoaded", () => {
@@ -30,6 +31,7 @@ function fetchWaitlist() {
                 li.className = "waitlist-item";
 
                 const pName = item.pname || (item.patient ? item.patient.pname : `Code: ${item.pcode}`);
+                const pNameEscaped = JSON.stringify(pName);
                 const time = item.visitime || item.visitime || '';
                 const extra = item.fin ? `FIN:${item.fin}` : '';
 
@@ -38,7 +40,10 @@ function fetchWaitlist() {
                         <h4>${pName}</h4>
                         <p>${time} ${extra}</p>
                     </div>
-                    <div style="display:flex; align-items:center; gap:0.5rem; color:var(--text-muted);">MTR</div>
+                    <div class="waitlist-actions">
+                        <span style="color:var(--text-muted);">MTR</span>
+                        <button class="delete-btn" onclick="deleteFromWaitlist(event, '${item.resid1}', ${pNameEscaped})">삭제</button>
+                    </div>
                 `;
                 waitListEl.appendChild(li);
             });
@@ -213,6 +218,7 @@ function selectPatient(pcode) {
     fetch(`${API_URL}/api/patients/${pcode}`)
         .then(res => res.json())
         .then(p => {
+            selectedPatient = p;
             document.getElementById("detail-name").innerText = p.pname;
             document.getElementById("detail-meta").innerText = `Patient Code: #${p.pcode} | Birth: ${p.pbirth || '-'} (${p.sex === '1' || p.sex === '3' ? 'Male' : 'Female'})`;
 
@@ -471,63 +477,26 @@ function switchTab(tabId) {
 }
 
 // 5. Waitlist CRUD handlers
-function openCheckInModal() {
+function submitCheckIn() {
     if (!selectedPcode) {
         alert("Please select a patient first.");
         return;
     }
-    const modal = document.getElementById("checkin-modal");
-    modal.style.display = "flex";
-    setTimeout(() => modal.classList.add("active"), 10);
-    
-    // Set initial defaults and trigger mapping
-    document.getElementById("checkin-dept").value = "14";
-    onDeptChange();
-}
-
-function closeCheckInModal() {
-    const modal = document.getElementById("checkin-modal");
-    modal.classList.remove("active");
-    setTimeout(() => modal.style.display = "none", 300);
-}
-
-function onDeptChange() {
-    const deptSelect = document.getElementById("checkin-dept");
-    const deptVal = deptSelect.value;
-    const docSelect = document.getElementById("checkin-doctor");
-    const roomSelect = document.getElementById("checkin-room");
-
-    if (deptVal === "14") {
-        docSelect.value = "63221";
-        roomSelect.value = "1";
-    } else if (deptVal === "15") {
-        docSelect.value = "12041";
-        roomSelect.value = "2";
-    } else if (deptVal === "01") {
-        docSelect.value = "99401";
-        roomSelect.value = "3";
-    } else if (deptVal === "13") {
-        docSelect.value = "63221";
-        roomSelect.value = "1";
-    }
-}
-
-function submitCheckIn() {
-    if (!selectedPcode) return;
-
-    const deptSelect = document.getElementById("checkin-dept");
-    const docSelect = document.getElementById("checkin-doctor");
-    const roomSelect = document.getElementById("checkin-room");
 
     const reqData = {
         pcode: selectedPcode,
-        roomcode: parseInt(roomSelect.value),
-        roomnm: roomSelect.options[roomSelect.selectedIndex].getAttribute("data-name"),
-        deptcode: deptSelect.value,
-        deptnm: deptSelect.options[deptSelect.selectedIndex].getAttribute("data-name"),
-        doctrcode: docSelect.value,
-        doctrnm: docSelect.options[docSelect.selectedIndex].getAttribute("data-name")
+        roomcode: 1,
+        roomnm: "제1진료실",
+        deptcode: "14",
+        deptnm: "가정의학과",
+        doctrcode: "63221",
+        doctrnm: "한유석"
     };
+
+    if (selectedPatient) {
+        reqData.pname = selectedPatient.pname;
+        reqData.pbirth = selectedPatient.pbirth;
+    }
 
     fetch(`${API_URL}/api/waiting`, {
         method: "POST",
@@ -543,7 +512,6 @@ function submitCheckIn() {
         return res.json();
     })
     .then(data => {
-        closeCheckInModal();
         fetchWaitlist();
         alert(data.message || "대기 접수되었습니다.");
     })
