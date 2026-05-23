@@ -41,10 +41,10 @@ The main entry point of the server. It:
    - `GET /api/schema`: Dynamically queries the Firebird system tables (`RDB$RELATION_FIELDS`, `RDB$FIELDS`, etc.) across all four databases and returns the exact schema of every user table in JSON.
    - `GET /api/patients`: Lists patients from `MTSDB.PERSON`. Calls the `decryptor` module on-the-fly to decrypt patient resident registration numbers (`PIDNUM`).
    - `GET /api/patients/{pcode}`: Returns patient demographic details and vital check history (`MTSDB.CHECK_VITAL`).
-   - `GET /api/waiting`: Searches `MTSWAIT` database for the active annual waitlist table (e.g., `WAIT2025`) and joins patient names from `MTSDB` in memory.
-   - `POST /api/waiting`: Checks in a patient by executing a dual-write transaction: it creates a live waitlist entry in `MTSWAIT` and a corresponding ledger entry in `MTSMTR` (with an empty `FIN` column indicating active status).
-   - `PUT /api/waiting/{resid1}`: Dynamically resolves the annual table and updates the patient's assigned department, doctor, or room.
-   - `DELETE /api/waiting/{resid1}`: Deletes the live queue entry in `MTSWAIT` and conditionally cancels (deletes) the ledger entry in `MTSMTR` only if the treatment is not yet completed (`FIN` is empty).
+   - `GET /api/waiting`: Queries the database for the active annual waitlist table. By default, it queries the ledger database `MTSMTR` (e.g. `MTR2026`) and generates session-like `resid1` IDs for items. It also supports `MTSWAIT` (live queue) via query params.
+   - `POST /api/waiting`: Checks in a patient by creating a ledger entry in `MTSMTR` (with an empty `FIN` column indicating active status).
+   - `PUT /api/waiting/{resid1}`: Refactored to update the doctor assignment (`DOC` column) in `MTSMTR` by decoding the session-like `resid1` key.
+   - `DELETE /api/waiting/{resid1}`: Operates entirely on `MTSMTR` (bypassing `MTSWAIT`). It decodes `resid1` to retrieve the `pcode` and `visidate` and cancels (deletes) the ledger entry if the treatment is not yet completed (`FIN` is empty).
    - `GET /api/charts/{pcode}`: Loops through all annual clinical chart tables (e.g. `CHT2023`, `CHT2024`, `CHT2025`) in the `MTSCHT` database to reconstruct a patient's historical medical records.
    - `GET /api/visits/{pcode}`: Gathers billing ledger entries, weight, temperature, vaccinations, and treatment notes from the annual ledger tables (e.g. `MTR2025`) in `MTSMTR`.
 4. **Launches Uvicorn**: Includes a `__main__` entry to start the application using `uvicorn.run(...)` on `http://127.0.0.1:8000`.
@@ -100,8 +100,9 @@ You can compile the worker using the built-in Microsoft C# Compiler (`csc.exe`) 
 
 ### 4.1. Prerequisites
 - **Python**: Python 3.8 or higher.
-- **Firebird SQL Server**: Firebird server must be running locally.
-- **EMR Installation**: The clinic program must be located at `C:\mts3` containing `C:\mts3\IndvInfmCrypto.dll` and the database files inside `C:\mts3\db\`.
+- **Firebird SQL Server**: Firebird server must be running and network-accessible.
+- **Firebird Client Library**: The native client library (`fbclient.dll` on Windows / `libfbclient.so` on Linux) must be present on the REST API server machine for connection establishment.
+- **EMR Installation**: The clinic program must be located at the configured path containing `IndvInfmCrypto.dll` and the database files inside the designated Firebird directory.
 
 ### 4.2. Setup Python Environment
 Create a virtual environment and install the required dependencies:
@@ -150,16 +151,20 @@ INFO:     127.0.0.1:58103 - "GET /api/waiting HTTP/1.1" 200 OK
 ## 5. Database Connections & Configurations
 
 ### 5.1. Database Targets
-The server connects to four distinct databases inside `C:\mts3\db\`:
+The server connects to the configured Firebird databases:
 
 | Database Name | File Path | Scope |
 | :--- | :--- | :--- |
-| `MTSDB` | `C:\mts3\db\MTSDB.FDB` | Central register (Patients, Vitals registry) |
-| `MTSCHT` | `C:\mts3\db\MTSCHT.FDB` | Annual charts (Symptoms, Diagnoses, Doctors) |
-| `MTSWAIT` | `C:\mts3\db\MTSWAIT.FDB` | Clinic waitlists (Active queues) |
-| `MTSMTR` | `C:\mts3\db\MTSMTR.FDB` | Annual visit ledgers (Fees, Vitals, Vaccinations) |
+| `MTSDB` | `[DB_DIR]/MTSDB.FDB` | Central register (Patients, Vitals registry) |
+| `MTSCHT` | `[DB_DIR]/MTSCHT.FDB` | Annual charts (Symptoms, Diagnoses, Doctors) |
+| `MTSWAIT` | `[DB_DIR]/MTSWAIT.FDB` | Clinic waitlists (Active queues, if used) |
+| `MTSMTR` | `[DB_DIR]/MTSMTR.FDB` | Annual visit ledgers (Fees, Vitals, Vaccinations) |
 
-### 5.2. Default Credentials
-- **User**: `SYSDBA`
-- **Password**: `masterkey`
-- **Port**: `3050` (Firebird default)
+### 5.2. Connection Settings & Remote Support
+The connection settings are defined in [config.py](file:///c:/rest-api-server/config.py):
+- **DB_HOST**: IP address of the database server (supports remote configurations like `192.168.0.12`). Defaults to `127.0.0.1`.
+- **DB_DIR**: Folder directory holding the `.FDB` files on the database server.
+- **DB_PORT**: Firebird port (default `3050`).
+- **DB_USER** / **DB_PASSWORD**: Firebird DBA credentials (default `SYSDBA` / `masterkey`).
+
+The REST API server bypasses local database file existence checks when `DB_HOST` is remote, allowing seamless network communication.
