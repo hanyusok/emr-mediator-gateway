@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>간편 환자 대기 등록 (Instant Check-In)</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #080c14;
+            --panel-bg: rgba(15, 23, 42, 0.65);
+            --panel-border: rgba(255, 255, 255, 0.08);
+            --accent-primary: #10b981; /* Emerald */
+            --accent-primary-glow: rgba(16, 185, 129, 0.3);
+            --accent-secondary: #06b6d4; /* Cyan */
+            --accent-secondary-glow: rgba(6, 182, 212, 0.3);
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --glass-blur: blur(20px);
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', 'Noto Sans KR', sans-serif;
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(circle at 80% 20%, var(--accent-secondary-glow) 0%, transparent 50%),
+                radial-gradient(circle at 10% 85%, var(--accent-primary-glow) 0%, transparent 50%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* Glassmorphic Container */
+        .card {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            backdrop-filter: var(--glass-blur);
+            width: 440px;
+            max-width: 90%;
+            border-radius: 24px;
+            padding: 2.5rem;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 40px rgba(6, 182, 212, 0.05);
+            position: relative;
+            z-index: 10;
+            transition: var(--transition);
+        }
+
+        .card:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 50px rgba(16, 185, 129, 0.08);
+        }
+
+        /* Logo / Header */
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .logo-icon {
+            width: 3.5rem;
+            height: 3.5rem;
+            background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+            border-radius: 14px;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 1rem;
+            box-shadow: 0 0 20px var(--accent-secondary-glow);
+            animation: pulse 2.5s infinite;
+        }
+
+        .logo-icon svg {
+            width: 2rem;
+            height: 2rem;
+            fill: white;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.5px;
+            background: linear-gradient(to right, #ffffff, #d1d5db);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        /* Forms */
+        .form-group {
+            margin-bottom: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding-left: 0.25rem;
+        }
+
+        input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            padding: 0.9rem 1.2rem;
+            color: white;
+            font-size: 1rem;
+            outline: none;
+            transition: var(--transition);
+            font-family: inherit;
+        }
+
+        input:focus {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: var(--accent-secondary);
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);
+        }
+
+        input::placeholder {
+            color: rgba(255, 255, 255, 0.25);
+        }
+
+        /* Date input overrides */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+        
+        input[type="date"]::-webkit-calendar-picker-indicator:hover {
+            opacity: 1;
+        }
+
+        /* Button */
+        button {
+            width: 100%;
+            background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+            border: none;
+            color: white;
+            font-size: 1.05rem;
+            font-weight: 600;
+            padding: 1rem;
+            border-radius: 12px;
+            cursor: pointer;
+            box-shadow: 0 4px 20px var(--accent-secondary-glow);
+            transition: var(--transition);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(6, 182, 212, 0.35);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-muted);
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Status & Toast Messages */
+        .status-box {
+            margin-top: 1.25rem;
+            border-radius: 12px;
+            padding: 0.85rem 1rem;
+            font-size: 0.9rem;
+            display: none;
+            align-items: center;
+            gap: 0.5rem;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .status-box.success {
+            display: flex;
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            color: #34d399;
+        }
+
+        .status-box.error {
+            display: flex;
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            color: #f87171;
+        }
+
+        .status-box.loading {
+            display: flex;
+            background: rgba(6, 182, 212, 0.12);
+            border: 1px solid rgba(6, 182, 212, 0.25);
+            color: #22d3ee;
+        }
+
+        /* Spinner */
+        .spinner {
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        /* Keyframes */
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 15px var(--accent-secondary-glow); }
+            50% { transform: scale(1.05); box-shadow: 0 0 25px rgba(6, 182, 212, 0.5); }
+            100% { transform: scale(1); box-shadow: 0 0 15px var(--accent-secondary-glow); }
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="header">
+            <div class="logo-icon">
+                <!-- User Registry Icon -->
+                <svg viewBox="0 0 24 24">
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+            </div>
+            <h1>간편 대기 등록</h1>
+            <div class="subtitle">이름과 생년월일을 입력하여 바로 접수합니다.</div>
+        </div>
+
+        <form id="checkin-form" onsubmit="handleFormSubmit(event)">
+            <div class="form-group">
+                <label for="pname">환자 이름 (Name)</label>
+                <input type="text" id="pname" placeholder="홍길동" required autocomplete="off">
+            </div>
+
+            <div class="form-group">
+                <label for="pbirth">생년월일 (Birthdate)</label>
+                <input type="date" id="pbirth" required>
+            </div>
+
+            <button type="submit" id="submit-btn">
+                <span>접수 등록하기</span>
+            </button>
+        </form>
+
+        <div id="status-container" class="status-box"></div>
+    </div>
+
+    <script>
+        const GATEWAY_URL = "http://127.0.0.1:8000";
+
+        async function handleFormSubmit(event) {
+            event.preventDefault();
+            
+            const nameInput = document.getElementById("pname");
+            const birthInput = document.getElementById("pbirth");
+            const submitBtn = document.getElementById("submit-btn");
+            const statusBox = document.getElementById("status-container");
+
+            const pname = nameInput.value.trim();
+            const pbirth = birthInput.value; // YYYY-MM-DD format
+
+            if (!pname || !pbirth) return;
+
+            // Reset & Loading State
+            submitBtn.disabled = true;
+            statusBox.className = "status-box loading";
+            statusBox.innerHTML = '<div class="spinner"></div><span>환자 기록 검색 중...</span>';
+
+            try {
+                // 1. Query MTSDB to check if patient already exists
+                const patientsUrl = `${GATEWAY_URL}/api/patients?pname=${encodeURIComponent(pname)}`;
+                const resPatients = await fetch(patientsUrl);
+                
+                let pcode = 99999; // Fallback default patient code
+                
+                if (resPatients.ok) {
+                    const patientsList = await resPatients.json();
+                    
+                    // Look for a patient with the exact name and matching birthdate
+                    // birthdate from API is usually YYYY-MM-DD ISO format
+                    const match = patientsList.find(p => {
+                        const birthMatch = p.pbirth === pbirth;
+                        const nameMatch = p.pname === pname;
+                        return nameMatch && birthMatch;
+                    });
+
+                    if (match) {
+                        pcode = match.pcode;
+                        console.log(`Found existing patient! Pcode: ${pcode}`);
+                    } else {
+                        console.log(`No exact match found in database. Using default pcode ${pcode}.`);
+                    }
+                }
+
+                // 2. Update status and register on MTSMTR
+                statusBox.innerHTML = '<div class="spinner"></div><span>대기 열에 등록 중...</span>';
+
+                const registerUrl = `${GATEWAY_URL}/api/mtr`;
+                const payload = {
+                    pcode: pcode,
+                    pname: pname,
+                    pbirth: pbirth
+                };
+
+                const resRegister = await fetch(registerUrl, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!resRegister.ok) {
+                    const errorDetails = await resRegister.json();
+                    throw new Error(errorDetails.detail || "대기 등록에 실패했습니다.");
+                }
+
+                const result = await resRegister.json();
+                console.log("Registration success:", result);
+
+                // Success State
+                statusBox.className = "status-box success";
+                statusBox.innerHTML = `
+                    <svg style="width:1.25rem;height:1.25rem;fill:currentColor" viewBox="0 0 24 24">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                    </svg>
+                    <span>대기 등록 성공! (ID: ${result.mtr_id || '-'})</span>
+                `;
+
+                // Reset form
+                nameInput.value = "";
+                birthInput.value = "";
+
+            } catch (err) {
+                console.error("Check-in error:", err);
+                statusBox.className = "status-box error";
+                statusBox.innerHTML = `
+                    <svg style="width:1.25rem;height:1.25rem;fill:currentColor" viewBox="0 0 24 24">
+                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                    <span>오류: ${err.message}</span>
+                `;
+            } finally {
+                submitBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
