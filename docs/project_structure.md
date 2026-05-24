@@ -17,7 +17,8 @@ c:\rest-api-server\
 ├── main.py               # Main FastAPI server with routes and DB logging wrappers
 ├── docs/                 # Documentation directory
 │   ├── database_structure.md   # Auto-generated database tables, types, and schema details
-│   └── project_structure.md    # This directory and build/execution guide
+│   ├── project_structure.md    # This directory and build/execution guide
+│   └── windows_server_2022_install.md # Production installation guide for Windows Server 2022
 └── static/               # Static frontend assets
     └── index.html        # Glassmorphic single-page web UI dashboard
 ```
@@ -97,6 +98,9 @@ You can compile the worker using the built-in Microsoft C# Compiler (`csc.exe`) 
 ---
 
 ## 4. REST API Execution and Deployment Guide
+
+> [!TIP]
+> For production deployment on Windows Server 2022 as a persistent background service (using NSSM), see the dedicated [Windows Server 2022 Production Installation Guide](file:///c:/rest-api-server/docs/windows_server_2022_install.md).
 
 ### 4.1. Prerequisites
 - **Python**: Python 3.8 or higher.

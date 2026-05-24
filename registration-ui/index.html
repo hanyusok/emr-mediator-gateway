@@ -11,6 +11,8 @@
         rel="stylesheet">
 
     <link rel="stylesheet" href="style.css">
+    <!-- Load dynamic EMR REST Gateway configuration -->
+    <script src="/config.js"></script>
 </head>
 
 <body>
@@ -22,7 +24,7 @@
                     <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
                 </svg>
             </div>
-            <h1>간편 대기 등록</h1>
+            <h1>셀프 체크인</h1>
             <div class="subtitle">이름과 생년월일을 입력하여 바로 접수합니다.</div>
         </div>
 
@@ -51,7 +53,10 @@
     </div>
 
     <script>
-        const GATEWAY_URL = "http://127.0.0.1:8000";
+        // Dynamically resolve REST API gateway URL based on injected config and current hostname
+        const GATEWAY_URL = window.GATEWAY_PORT 
+            ? `${window.location.protocol}//${window.location.hostname}:${window.GATEWAY_PORT}` 
+            : "http://127.0.0.1:8000";
 
         function handleClear() {
             document.getElementById("pname").value = "";
@@ -79,7 +84,7 @@
             submitBtn.disabled = true;
             if (clearBtn) clearBtn.disabled = true;
             statusBox.className = "status-box loading";
-            statusBox.innerHTML = '<div class="spinner"></div><span>환자 기록 검색 중...</span>';
+            statusBox.innerHTML = '<div class="spinner"></div><span>방문 기록 검색 중...</span>';
 
             try {
                 // 1. Query MTSDB to check if patient already exists
@@ -139,7 +144,7 @@
                     <svg style="width:1.25rem;height:1.25rem;fill:currentColor" viewBox="0 0 24 24">
                         <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                     </svg>
-                    <span>대기 등록 성공! (ID: ${result.mtr_id || '-'})</span>
+                    <span>정상적으로 접수 되었습니다   (대기순번: ${result.mtr_id || '-'})</span>
                 `;
 
                 // Reset form

@@ -3,6 +3,7 @@ import os
 # Server Configurations
 HOST = os.getenv("EMR_GATEWAY_HOST", "127.0.0.1")
 PORT = int(os.getenv("EMR_GATEWAY_PORT", "8000"))
+FRONTEND_PORT = int(os.getenv("EMR_FRONTEND_PORT", "3007"))
 
 # Database Credentials & Paths
 DB_HOST = os.getenv("EMR_DB_HOST", "192.168.0.12") #진료실컴 DAVID ip

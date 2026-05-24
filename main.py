@@ -1,6 +1,6 @@
 import os
 import fdb
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -11,7 +11,7 @@ import logging
 import time
 
 from config import (
-    HOST, PORT, DB_HOST, DB_DIR, DB_USER, DB_PASSWORD,
+    HOST, PORT, FRONTEND_PORT, DB_HOST, DB_DIR, DB_USER, DB_PASSWORD,
     DEFAULT_ROOM_CODE, DEFAULT_ROOM_NAME,
     DEFAULT_DEPT_CODE, DEFAULT_DEPT_NAME,
     DEFAULT_DOCTOR_CODE, DEFAULT_DOCTOR_NAME
@@ -52,6 +52,32 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Frontend Application Server (Self Check-In UI)
+frontend_app = FastAPI(
+    title="EMR self-registration UI",
+    description="Serves the self-registration / self check-in kiosk UI on port 3007.",
+    version="1.0.0"
+)
+
+frontend_app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@frontend_app.get("/config.js")
+def get_frontend_config():
+    """Serves backend port configuration dynamically to the frontend client."""
+    return Response(
+        content=f"window.GATEWAY_PORT = {PORT};",
+        media_type="application/javascript"
+    )
+
+# Mount the registration UI static files
+frontend_app.mount("/", StaticFiles(directory="registration-ui", html=True), name="registration-ui")
 
 # Database Logging Wrappers
 class LoggingCursor:
@@ -534,7 +560,7 @@ def check_in_patient(req: WaitlistCreate):
             ("#", PCODE, VISIDATE, VISITIME, PNAME, SEX, PBIRTH, AGE, FIN, SERIAL, GUBUN)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
-        cur_mtr.execute(sql_mtr, (next_id, req.pcode, today, current_time_str, pname, sex, pbirth, age_str, '', 1, '콜닥'))
+        cur_mtr.execute(sql_mtr, (next_id, req.pcode, today, current_time_str, pname, sex, pbirth, age_str, '', 1, '셀프'))
         con_mtr.commit()
         logger.info(f"Created ledger record in {mtr_table} with ID {next_id} for patient {req.pcode}")
     except Exception as e:
@@ -829,5 +855,32 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 if __name__ == "__main__":
     import uvicorn
-    # Start the server using configuration values
-    uvicorn.run(app, host=HOST, port=PORT)
+    import threading
+    import sys
+
+    def run_rest_server():
+        logger.info(f"Starting EMR Gateway REST Server on http://{HOST}:{PORT}")
+        uvicorn.run(app, host=HOST, port=PORT, log_level="info")
+
+    def run_frontend_server():
+        logger.info(f"Starting Self Check-In Frontend Server on http://{HOST}:{FRONTEND_PORT}")
+        uvicorn.run(frontend_app, host=HOST, port=FRONTEND_PORT, log_level="info")
+
+    # Run both servers concurrently in daemon threads
+    rest_thread = threading.Thread(target=run_rest_server, daemon=True)
+    frontend_thread = threading.Thread(target=run_frontend_server, daemon=True)
+
+    rest_thread.start()
+    frontend_thread.start()
+
+    # Keep the main thread alive to handle keyboard interrupt
+    try:
+        while True:
+            rest_thread.join(0.5)
+            frontend_thread.join(0.5)
+            if not rest_thread.is_alive() or not frontend_thread.is_alive():
+                logger.info("One of the servers stopped. Shutting down...")
+                break
+    except KeyboardInterrupt:
+        logger.info("KeyboardInterrupt received. Stopping both servers...")
+        sys.exit(0)
