@@ -4,6 +4,9 @@ using System.Text;
 using System.IO;
 
 public class DecryptWorker {
+    [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    private static extern bool SetDllDirectory(string lpPathName);
+
     private static class StdCallCrypto {
         [DllImport("C:\\mts3\\IndvInfmCrypto.dll", EntryPoint = "initialize", CallingConvention = CallingConvention.StdCall)]
         public static extern int initialize(ref IntPtr handle);
@@ -44,6 +47,9 @@ public class DecryptWorker {
     [System.Runtime.ExceptionServices.HandleProcessCorruptedStateExceptions]
     [System.Security.SecurityCritical]
     public static void Main(string[] args) {
+        // Add C:\mts3 to the DLL search path for dependency resolution (like DSCToolkitV30.dll)
+        SetDllDirectory("C:\\mts3");
+
         // Set working directory to C:\mts3 where the DLL and configuration files reside
         try {
             Directory.SetCurrentDirectory("C:\\mts3");

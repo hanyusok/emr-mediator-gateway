@@ -33,13 +33,18 @@ class Decryptor:
             if not os.path.exists(self.worker_path):
                 raise FileNotFoundError(f"DecryptWorker.exe not found at: {self.worker_path}")
 
+            # Prepend EMR DLL folder C:\mts3 to PATH of the subprocess so that it can resolve DLL dependencies
+            env = os.environ.copy()
+            env["PATH"] = r"C:\mts3;" + env.get("PATH", "")
+
             self._proc = subprocess.Popen(
                 [self.worker_path],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                bufsize=1 # Line buffered
+                bufsize=1, # Line buffered
+                env=env
             )
 
             # Wait for READY signal, ignoring any DLL debug outputs that may precede it
@@ -86,13 +91,18 @@ class Decryptor:
             if self._proc is None or self._proc.poll() is not None:
                 logger.warning("Decryption worker process died. Restarting...")
                 try:
+                    # Prepend EMR DLL folder C:\mts3 to PATH of the subprocess so that it can resolve DLL dependencies
+                    env = os.environ.copy()
+                    env["PATH"] = r"C:\mts3;" + env.get("PATH", "")
+
                     self._proc = subprocess.Popen(
                         [self.worker_path],
                         stdin=subprocess.PIPE,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
                         text=True,
-                        bufsize=1
+                        bufsize=1,
+                        env=env
                     )
                     ready_line = ""
                     while True:

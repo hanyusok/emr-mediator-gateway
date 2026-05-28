@@ -363,7 +363,7 @@ def get_patient_detail(pcode: int):
 def get_waiting(
     source: str = Query(
         "mtsmtr",
-        regex="^(mtswait|mtsmtr)$",
+        pattern="^(mtswait|mtsmtr)$",
         description="Choose which source to fetch from: mtswait or mtsmtr."
     )
 ):
