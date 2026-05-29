@@ -560,7 +560,7 @@ def check_in_patient(req: WaitlistCreate):
             ("#", PCODE, VISIDATE, VISITIME, PNAME, SEX, PBIRTH, AGE, FIN, SERIAL, GUBUN)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
-        cur_mtr.execute(sql_mtr, (next_id, req.pcode, today, current_time_str, pname, sex, pbirth, age_str, '', 1, '셀프'))
+        cur_mtr.execute(sql_mtr, (next_id, req.pcode, today, current_time_str, pname, sex, pbirth, age_str, '', 1, '키오'))
         con_mtr.commit()
         logger.info(f"Created ledger record in {mtr_table} with ID {next_id} for patient {req.pcode}")
     except Exception as e:
@@ -661,7 +661,7 @@ def create_mtr_cloud(req: CloudMtrCreate):
             ("#", PCODE, VISIDATE, VISITIME, PNAME, SEX, PBIRTH, AGE, FIN, SERIAL, GUBUN)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
-        cur_mtr.execute(sql_mtr, (next_id, req.pcode, today, current_time_str, pname, sex or '', pbirth, age_str, '', 1, '콜닥'))
+        cur_mtr.execute(sql_mtr, (next_id, req.pcode, today, current_time_str, pname, sex or '', pbirth, age_str, '', 1, '키오'))
         con_mtr.commit()
         logger.info(f"[CLOUD] Created ledger record in {mtr_table} with ID {next_id} for patient {req.pcode}")
     except Exception as e:
