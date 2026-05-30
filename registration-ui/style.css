@@ -388,7 +388,7 @@ button.btn-secondary:hover {
 }
 
 /* Landscape-specific Tablet/Kiosk Adjustments */
-@media (min-width: 600px) and (orientation: landscape) {
+@media (min-width: 1200px) and (orientation: landscape) {
     :root {
         --body-padding: 0.5rem;
         --card-width: 96vw;
@@ -472,7 +472,7 @@ button.btn-secondary:hover {
 }
 
 /* Specific optimizations for Galaxy Tab A7 Landscape and similar low-height viewports (height <= 640px) */
-@media (min-width: 600px) and (orientation: landscape) and (max-height: 640px) {
+@media (min-width: 1200px) and (orientation: landscape) and (max-height: 640px) {
     :root {
         --body-padding: 0.25rem;
         --card-max-height: 540px;
