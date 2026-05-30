@@ -1,62 +1,60 @@
 :root {
-    /* Color Palette */
-    --bg-color: #060911;
-    --panel-bg: rgba(10, 16, 30, 0.45);
-    --panel-border: rgba(255, 255, 255, 0.06);
-    --accent-primary: #10b981;
-    /* Emerald */
-    --accent-primary-glow: rgba(16, 185, 129, 0.25);
-    --accent-secondary: #06b6d4;
-    /* Cyan */
-    --accent-secondary-glow: rgba(6, 182, 212, 0.25);
-    --text-main: #f3f4f6;
-    --text-muted: #9ca3af;
-    --glass-blur: blur(25px);
-    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Google Material Design 3 Dark Theme Palette */
+    --md-sys-color-background: #121212;
+    --md-sys-color-surface: #1f1f23; /* Surface Container */
+    --md-sys-color-outline: #8e918f; /* M3 outline */
+    --md-sys-color-outline-variant: #444746; /* M3 outline variant */
+    --md-sys-color-primary: #80deea; /* Material Cyan / Accent */
+    --md-sys-color-on-primary: #00363a; /* Dark Teal text for Cyan button */
+    --md-sys-color-primary-container: #004d40;
+    --md-sys-color-on-primary-container: #e0f2f1;
+    --md-sys-color-on-surface: #e2e3e2;
+    --md-sys-color-on-surface-variant: #c4c7c5;
+    
+    --transition: all 0.2s cubic-bezier(0.2, 0, 0, 1); /* M3 standard deceleration curve */
 
     /* Dimensions & Spacing Design Tokens */
     --body-padding: 1.5rem 1rem;
-    --card-width: 1952px;
+    --card-width: 450px;
     --card-max-width: 95%;
     --card-height: auto;
     --card-max-height: none;
     --card-padding: 2.5rem;
-    --card-radius: 24px;
-    --card-border: 1px solid var(--panel-border);
-    --card-bg: var(--panel-bg);
-    --card-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), 0 0 50px rgba(6, 182, 212, 0.03);
+    --card-radius: 28px; /* M3 Extra Large shape */
+    --card-border: 1px solid var(--md-sys-color-outline-variant);
+    --card-bg: var(--md-sys-color-surface);
 
     --logo-size: 3.5rem;
-    --logo-radius: 14px;
-    --logo-margin: 1rem;
+    --logo-radius: 16px; /* M3 Medium shape */
+    --logo-margin: 1.25rem;
     --logo-icon-size: 2rem;
 
-    --title-size: 1.5rem;
-    --subtitle-size: 0.85rem;
+    --title-size: 1.6rem;
+    --subtitle-size: 0.9rem;
 
     --form-gap: 1.5rem;
-    --group-gap: 0.5rem;
+    --group-gap: 0.4rem;
 
     --label-size: 0.85rem;
-    --label-spacing: 1px;
+    --label-spacing: 0.5px;
 
-    --input-padding: 0.9rem 1.2rem;
-    --input-size: 1rem;
+    --input-padding: 1rem 1.25rem;
+    --input-size: 1.1rem;
     --input-radius: 12px;
 
-    --btn-padding: 1rem;
+    --btn-padding: 1rem 1.5rem;
     --btn-size: 1.05rem;
-    --btn-radius: 12px;
-    --btn-margin: 1rem;
+    --btn-radius: 100px; /* M3 Fully Rounded shape (capsule) */
+    --btn-margin: 1.25rem;
     --btn-gap: 0.75rem;
 
-    --status-padding: 0.85rem 1rem;
-    --status-size: 0.9rem;
-    --status-radius: 12px;
+    --status-padding: 1rem 1.25rem;
+    --status-size: 1rem;
+    --status-radius: 16px;
     --status-margin: 1.25rem;
 
-    --spinner-size: 1rem;
-
+    --spinner-size: 1.2rem;
+    
     --header-border: none;
     --header-padding: 0;
 }
@@ -70,11 +68,8 @@
 
 body {
     font-family: 'Outfit', 'Noto Sans KR', sans-serif;
-    background-color: var(--bg-color);
-    background-image:
-        radial-gradient(circle at 80% 20%, var(--accent-secondary-glow) 0%, transparent 50%),
-        radial-gradient(circle at 10% 85%, var(--accent-primary-glow) 0%, transparent 50%);
-    color: var(--text-main);
+    background-color: var(--md-sys-color-background);
+    color: var(--md-sys-color-on-surface);
     min-height: 100vh;
     display: flex;
     justify-content: center;
@@ -84,26 +79,20 @@ body {
     padding: var(--body-padding);
 }
 
-/* Glassmorphic Container */
+/* Material Card Container */
 .card {
-    background: var(--card-bg);
+    background-color: var(--card-bg);
     border: var(--card-border);
-    backdrop-filter: var(--glass-blur);
     width: var(--card-width);
     max-width: var(--card-max-width);
     height: var(--card-height);
     max-height: var(--card-max-height);
     border-radius: var(--card-radius);
     padding: var(--card-padding);
-    box-shadow: var(--card-shadow);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
     position: relative;
     z-index: 10;
     transition: var(--transition);
-}
-
-.card:hover {
-    border-color: rgba(255, 255, 255, 0.12);
-    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.65), 0 0 60px rgba(16, 185, 129, 0.05);
 }
 
 /* Logo / Header */
@@ -117,35 +106,30 @@ body {
 .logo-icon {
     width: var(--logo-size);
     height: var(--logo-size);
-    background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+    background: var(--md-sys-color-primary-container);
     border-radius: var(--logo-radius);
     display: inline-flex;
     justify-content: center;
     align-items: center;
     margin-bottom: var(--logo-margin);
-    box-shadow: 0 0 20px var(--accent-secondary-glow);
-    animation: pulse 2.5s infinite;
 }
 
 .logo-icon svg {
     width: var(--logo-icon-size);
     height: var(--logo-icon-size);
-    fill: white;
+    fill: var(--md-sys-color-primary);
 }
 
 h1 {
     font-size: var(--title-size);
-    font-weight: 700;
+    font-weight: 600;
     margin-bottom: 0.5rem;
-    letter-spacing: -0.5px;
-    background: linear-gradient(to right, #ffffff, #d1d5db);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--md-sys-color-on-surface);
 }
 
 .subtitle {
     font-size: var(--subtitle-size);
-    color: var(--text-muted);
+    color: var(--md-sys-color-on-surface-variant);
     font-weight: 400;
 }
 
@@ -159,20 +143,19 @@ h1 {
 
 label {
     font-size: var(--label-size);
-    font-weight: 600;
-    color: var(--text-muted);
-    text-transform: uppercase;
+    font-weight: 500; /* M3 Medium label */
+    color: var(--md-sys-color-on-surface-variant);
     letter-spacing: var(--label-spacing);
     padding-left: 0.25rem;
 }
 
 input {
     width: 100%;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--panel-border);
+    background: transparent;
+    border: 1.5px solid var(--md-sys-color-outline);
     border-radius: var(--input-radius);
     padding: var(--input-padding);
-    color: white;
+    color: var(--md-sys-color-on-surface);
     font-size: var(--input-size);
     outline: none;
     transition: var(--transition);
@@ -180,9 +163,9 @@ input {
 }
 
 input:focus {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: var(--accent-secondary);
-    box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);
+    border-color: var(--md-sys-color-primary);
+    border-width: 2px;
+    background: rgba(128, 222, 234, 0.04); /* Subtle primary tint */
 }
 
 input::placeholder {
@@ -201,18 +184,17 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
     opacity: 1;
 }
 
-/* Button */
+/* Button (Material Filled Button) */
 button {
     width: 100%;
-    background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+    background: var(--md-sys-color-primary);
     border: none;
-    color: white;
+    color: var(--md-sys-color-on-primary);
     font-size: var(--btn-size);
     font-weight: 600;
     padding: var(--btn-padding);
     border-radius: var(--btn-radius);
     cursor: pointer;
-    box-shadow: 0 4px 20px var(--accent-secondary-glow);
     transition: var(--transition);
     display: flex;
     justify-content: center;
@@ -222,23 +204,23 @@ button {
 }
 
 button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 25px rgba(6, 182, 212, 0.35);
+    background: #a0ecf4; /* Lighter cyan focus */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 button:active {
-    transform: translateY(0);
+    transform: scale(0.98);
 }
 
 button:disabled {
-    background: rgba(255, 255, 255, 0.08);
-    color: var(--text-muted);
-    box-shadow: none;
+    background: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.38);
     cursor: not-allowed;
+    box-shadow: none;
     transform: none;
 }
 
-/* Button Group & Secondary Button */
+/* Button Group & Outlined Button */
 .button-group {
     display: flex;
     gap: var(--btn-gap);
@@ -251,15 +233,14 @@ button:disabled {
 }
 
 button.btn-secondary {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--panel-border);
-    color: var(--text-muted);
-    box-shadow: none;
+    background: transparent;
+    border: 1.5px solid var(--md-sys-color-outline);
+    color: var(--md-sys-color-primary);
 }
 
 button.btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
+    background: rgba(128, 222, 234, 0.08);
+    border-color: var(--md-sys-color-primary);
     box-shadow: none;
 }
 
@@ -277,23 +258,23 @@ button.btn-secondary:hover {
 
 .status-box.success {
     display: flex;
-    background: rgba(16, 185, 129, 0.12);
-    border: 1px solid rgba(16, 185, 129, 0.25);
-    color: #34d399;
+    background: #0f5223;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #e8f7ed;
 }
 
 .status-box.error {
     display: flex;
-    background: rgba(239, 68, 68, 0.12);
-    border: 1px solid rgba(239, 68, 68, 0.25);
+    background: var(--md-sys-color-outline-variant);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     color: #f87171;
 }
 
 .status-box.loading {
     display: flex;
-    background: rgba(6, 182, 212, 0.12);
-    border: 1px solid rgba(6, 182, 212, 0.25);
-    color: #22d3ee;
+    background: var(--md-sys-color-primary-container);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--md-sys-color-on-primary-container);
 }
 
 /* Spinner */
@@ -307,23 +288,6 @@ button.btn-secondary:hover {
 }
 
 /* Keyframes */
-@keyframes pulse {
-    0% {
-        transform: scale(1);
-        box-shadow: 0 0 15px var(--accent-secondary-glow);
-    }
-
-    50% {
-        transform: scale(1.05);
-        box-shadow: 0 0 25px rgba(6, 182, 212, 0.5);
-    }
-
-    100% {
-        transform: scale(1);
-        box-shadow: 0 0 15px var(--accent-secondary-glow);
-    }
-}
-
 @keyframes spin {
     to {
         transform: rotate(360deg);
@@ -335,7 +299,6 @@ button.btn-secondary:hover {
         opacity: 0;
         transform: translateY(5px);
     }
-
     to {
         opacity: 1;
         transform: translateY(0);
@@ -348,36 +311,36 @@ button.btn-secondary:hover {
         --card-width: 92vw;
         --card-height: 90vh;
         --card-max-width: 520px;
-        --card-max-height: 800px;
-        --card-padding: 2.5rem 2rem;
-        --card-radius: 20px;
+        --card-max-height: 850px;
+        --card-padding: 3rem 2.5rem;
+        --card-radius: 28px;
 
-        --logo-size: 3.75rem;
-        --logo-radius: 14px;
-        --logo-margin: 1rem;
-        --logo-icon-size: 2rem;
+        --logo-size: 4.5rem;
+        --logo-radius: 18px;
+        --logo-margin: 1.25rem;
+        --logo-icon-size: 2.5rem;
 
-        --title-size: 1.6rem;
-        --subtitle-size: 0.9rem;
-        --label-size: 0.85rem;
-        --label-spacing: 1.2px;
+        --title-size: 2.2rem;
+        --subtitle-size: 1.1rem;
+        --label-size: 1.1rem;
+        --label-spacing: 0.8px;
 
-        --input-padding: 0.95rem 1.25rem;
-        --input-size: 1.05rem;
-        --input-radius: 12px;
+        --input-padding: 1.2rem 1.6rem;
+        --input-size: 1.4rem;
+        --input-radius: 16px;
 
-        --btn-padding: 0.95rem;
-        --btn-size: 1.05rem;
-        --btn-radius: 12px;
-        --btn-margin: 1rem;
-        --btn-gap: 0.75rem;
+        --btn-padding: 1.2rem 1.8rem;
+        --btn-size: 1.4rem;
+        --btn-radius: 100px;
+        --btn-margin: 1.25rem;
+        --btn-gap: 1rem;
 
-        --status-padding: 0.9rem 1.1rem;
-        --status-size: 0.95rem;
-        --status-radius: 12px;
-        --status-margin: 1.25rem;
+        --status-padding: 1.2rem 1.5rem;
+        --status-size: 1.2rem;
+        --status-radius: 16px;
+        --status-margin: 1.5rem;
 
-        --spinner-size: 1.2rem;
+        --spinner-size: 1.4rem;
     }
 
     .card {
@@ -388,52 +351,52 @@ button.btn-secondary:hover {
 }
 
 /* Landscape-specific Tablet/Kiosk Adjustments */
-@media (min-width: 1200px) and (orientation: landscape) {
+@media (min-width: 600px) and (orientation: landscape) {
     :root {
         --body-padding: 0.5rem;
         --card-width: 96vw;
         --card-height: 90vh;
-        --card-max-width: 860px;
-        --card-max-height: 560px;
-        --card-padding: 2.25rem 3rem;
-        --card-radius: 20px;
+        --card-max-width: 940px;
+        --card-max-height: 600px;
+        --card-padding: 2.5rem 3.5rem;
+        --card-radius: 28px;
 
-        --logo-size: 3rem;
-        --logo-radius: 12px;
-        --logo-margin: 0.6rem;
-        --logo-icon-size: 1.75rem;
+        --logo-size: 4rem;
+        --logo-radius: 16px;
+        --logo-margin: 0.75rem;
+        --logo-icon-size: 2.25rem;
 
-        --title-size: 1.6rem;
-        --subtitle-size: 0.9rem;
-        --label-size: 0.9rem;
-        --label-spacing: 1px;
+        --title-size: 2rem;
+        --subtitle-size: 1.1rem;
+        --label-size: 1.1rem;
+        --label-spacing: 0.8px;
 
-        --input-padding: 0.85rem 1.25rem;
-        --input-size: 1.15rem;
-        --input-radius: 12px;
+        --input-padding: 1.1rem 1.5rem;
+        --input-size: 1.3rem;
+        --input-radius: 14px;
 
-        --btn-padding: 1rem;
-        --btn-size: 1.15rem;
-        --btn-radius: 12px;
+        --btn-padding: 1.15rem;
+        --btn-size: 1.3rem;
+        --btn-radius: 100px;
         --btn-margin: 0.5rem;
-        --btn-gap: 0.75rem;
+        --btn-gap: 0.85rem;
 
-        --status-padding: 0.85rem 1.1rem;
-        --status-size: 0.95rem;
-        --status-radius: 10px;
+        --status-padding: 1rem 1.25rem;
+        --status-size: 1.1rem;
+        --status-radius: 16px;
         --status-margin: 0;
 
         --spinner-size: 1.2rem;
-
-        --header-border: 1px solid rgba(255, 255, 255, 0.06);
-        --header-padding: 0 2.5rem 0 0;
+        
+        --header-border: 1px solid var(--md-sys-color-outline-variant);
+        --header-padding: 0 3.5rem 0 0;
     }
 
     .card {
         display: grid;
         grid-template-columns: 1fr 1.2fr;
         grid-template-rows: auto auto;
-        column-gap: 2.5rem;
+        column-gap: 3.5rem;
         row-gap: 0.5rem;
         align-items: center;
     }
@@ -447,6 +410,8 @@ button.btn-secondary:hover {
         flex-direction: column;
         justify-content: center;
         height: 100%;
+        border-right: var(--header-border);
+        padding-right: var(--header-padding);
     }
 
     #checkin-form {
@@ -456,12 +421,12 @@ button.btn-secondary:hover {
         flex-direction: column;
         justify-content: center;
         height: 100%;
-        gap: 0.65rem;
+        gap: 1rem;
     }
 
     .form-group {
         margin-bottom: 0;
-        gap: 0.35rem;
+        gap: 0.4rem;
     }
 
     .status-box {
@@ -472,45 +437,45 @@ button.btn-secondary:hover {
 }
 
 /* Specific optimizations for Galaxy Tab A7 Landscape and similar low-height viewports (height <= 640px) */
-@media (min-width: 1200px) and (orientation: landscape) and (max-height: 640px) {
+@media (min-width: 600px) and (orientation: landscape) and (max-height: 640px) {
     :root {
         --body-padding: 0.25rem;
         --card-max-height: 540px;
-        --card-padding: 0.85rem 1.75rem;
+        --card-padding: 1rem 2rem;
 
-        --logo-size: 2.5rem;
-        --logo-radius: 10px;
+        --logo-size: 3rem;
+        --logo-radius: 12px;
         --logo-margin: 0.5rem;
-        --logo-icon-size: 1.5rem;
+        --logo-icon-size: 1.75rem;
 
-        --title-size: 1.35rem;
-        --subtitle-size: 0.8rem;
-        --label-size: 0.8rem;
+        --title-size: 1.6rem;
+        --subtitle-size: 0.95rem;
+        --label-size: 0.95rem;
         --label-spacing: 0.6px;
 
-        --input-padding: 0.75rem 1.1rem;
-        --input-size: 1.05rem;
-        --input-radius: 10px;
+        --input-padding: 0.95rem 1.3rem;
+        --input-size: 1.2rem;
+        --input-radius: 12px;
 
-        --btn-padding: 0.95rem;
-        --btn-size: 1.05rem;
-        --btn-radius: 10px;
+        --btn-padding: 1.05rem;
+        --btn-size: 1.2rem;
+        --btn-radius: 100px;
         --btn-margin: 0.4rem;
-        --btn-gap: 0.6rem;
+        --btn-gap: 0.75rem;
 
-        --status-padding: 0.65rem 0.9rem;
-        --status-size: 0.85rem;
-        --status-radius: 8px;
-
-        --header-padding: 0 1.5rem 0 0;
+        --status-padding: 0.75rem 1.1rem;
+        --status-size: 1rem;
+        --status-radius: 12px;
+        
+        --header-padding: 0 2rem 0 0;
     }
 
     #checkin-form {
-        gap: 0.55rem;
+        gap: 0.75rem;
     }
 
     .form-group {
-        gap: 0.25rem;
+        gap: 0.3rem;
     }
 }
 
@@ -520,33 +485,33 @@ button.btn-secondary:hover {
         --card-width: 80vw;
         --card-height: 75vh;
         --card-max-width: 1000px;
-        --card-max-height: 1600px;
+        --card-max-height: 1500px;
         --card-padding: 5rem 4rem;
-        --card-radius: 32px;
+        --card-radius: 36px;
 
-        --logo-size: 8rem;
+        --logo-size: 7.5rem;
         --logo-radius: 24px;
         --logo-margin: 2.5rem;
-        --logo-icon-size: 4.5rem;
+        --logo-icon-size: 4rem;
 
-        --title-size: 3.2rem;
-        --subtitle-size: 1.5rem;
-        --label-size: 1.4rem;
-        --label-spacing: 2px;
+        --title-size: 3rem;
+        --subtitle-size: 1.4rem;
+        --label-size: 1.3rem;
+        --label-spacing: 1px;
 
         --input-padding: 1.5rem 2.2rem;
-        --input-size: 1.8rem;
-        --input-radius: 22px;
+        --input-size: 1.7rem;
+        --input-radius: 20px;
 
         --btn-padding: 1.5rem;
-        --btn-size: 1.8rem;
-        --btn-radius: 22px;
+        --btn-size: 1.7rem;
+        --btn-radius: 100px;
         --btn-margin: 2rem;
         --btn-gap: 1.75rem;
 
         --status-padding: 1.5rem 2rem;
         --status-size: 1.5rem;
-        --status-radius: 22px;
+        --status-radius: 20px;
         --status-margin: 2.5rem;
     }
 }
@@ -559,36 +524,36 @@ button.btn-secondary:hover {
         --card-width: 85vw;
         --card-height: 80vh;
         --card-max-width: 1600px;
-        --card-max-height: 1000px;
-        --card-padding: 3.5rem 5rem;
-        --card-radius: 32px;
+        --card-max-height: 980px;
+        --card-padding: 4rem 6rem;
+        --card-radius: 36px;
 
-        --logo-size: 7rem;
-        --logo-radius: 22px;
+        --logo-size: 6rem;
+        --logo-radius: 24px;
         --logo-margin: 1.75rem;
-        --logo-icon-size: 3.5rem;
+        --logo-icon-size: 3.25rem;
 
-        --title-size: 3rem;
-        --subtitle-size: 1.4rem;
-        --label-size: 1.3rem;
-        --label-spacing: 1.5px;
+        --title-size: 2.8rem;
+        --subtitle-size: 1.35rem;
+        --label-size: 1.25rem;
+        --label-spacing: 1px;
 
-        --input-padding: 1.5rem 2.2rem;
-        --input-size: 1.8rem;
-        --input-radius: 20px;
+        --input-padding: 1.4rem 2rem;
+        --input-size: 1.65rem;
+        --input-radius: 18px;
 
-        --btn-padding: 1.5rem;
-        --btn-size: 1.8rem;
-        --btn-radius: 20px;
+        --btn-padding: 1.4rem;
+        --btn-size: 1.65rem;
+        --btn-radius: 100px;
         --btn-margin: 1.25rem;
         --btn-gap: 1.5rem;
 
-        --status-padding: 1.4rem 1.8rem;
-        --status-size: 1.4rem;
-        --status-radius: 18px;
-
-        --header-border: 1px solid rgba(255, 255, 255, 0.06);
-        --header-padding: 0 4.5rem 0 0;
+        --status-padding: 1.3rem 1.8rem;
+        --status-size: 1.3rem;
+        --status-radius: 20px;
+        
+        --header-border: 1px solid var(--md-sys-color-outline-variant);
+        --header-padding: 0 5rem 0 0;
     }
 
     #checkin-form {
