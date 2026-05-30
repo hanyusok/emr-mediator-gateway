@@ -1,56 +1,53 @@
 :root {
     /* Color Palette */
     --bg-color: #080c14;
-    --panel-bg: rgba(15, 23, 42, 0.65);
-    --panel-border: rgba(255, 255, 255, 0.08);
+    --panel-border: rgba(255, 255, 255, 0.15);
     --accent-primary: #10b981; /* Emerald */
     --accent-primary-glow: rgba(16, 185, 129, 0.3);
     --accent-secondary: #06b6d4; /* Cyan */
     --accent-secondary-glow: rgba(6, 182, 212, 0.3);
     --text-main: #f3f4f6;
-    --text-muted: #9ca3af;
-    --glass-blur: blur(20px);
+    --text-muted: #a3a3a3;
     --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
     /* Dimensions & Spacing Design Tokens */
     --body-padding: 0.5rem;
-    --card-width: 440px;
-    --card-max-width: 95%;
+    --card-width: 460px;
+    --card-max-width: 96%;
     --card-height: auto;
     --card-max-height: none;
-    --card-padding: 2.5rem;
-    --card-radius: 24px;
+    --card-padding: 1.5rem;
 
-    --logo-size: 3.5rem;
-    --logo-radius: 14px;
+    --logo-size: 3.75rem;
+    --logo-radius: 16px;
     --logo-margin: 1rem;
-    --logo-icon-size: 2rem;
+    --logo-icon-size: 2.25rem;
 
-    --title-size: 1.5rem;
-    --subtitle-size: 0.85rem;
+    --title-size: 1.8rem;
+    --subtitle-size: 1rem;
 
-    --form-gap: 1.5rem;
-    --group-gap: 0.5rem;
+    --form-gap: 1.75rem;
+    --group-gap: 0.65rem;
 
-    --label-size: 0.85rem;
-    --label-spacing: 1px;
+    --label-size: 1rem;
+    --label-spacing: 1.2px;
 
-    --input-padding: 0.9rem 1.2rem;
-    --input-size: 1rem;
-    --input-radius: 12px;
+    --input-padding: 1.1rem 1.5rem;
+    --input-size: 1.2rem;
+    --input-radius: 14px;
 
-    --btn-padding: 1rem;
-    --btn-size: 1.05rem;
-    --btn-radius: 12px;
-    --btn-margin: 1rem;
-    --btn-gap: 0.75rem;
+    --btn-padding: 1.2rem;
+    --btn-size: 1.2rem;
+    --btn-radius: 14px;
+    --btn-margin: 1.25rem;
+    --btn-gap: 0.85rem;
 
-    --status-padding: 0.85rem 1rem;
-    --status-size: 0.9rem;
-    --status-radius: 12px;
-    --status-margin: 1.25rem;
+    --status-padding: 1.1rem 1.3rem;
+    --status-size: 1.1rem;
+    --status-radius: 14px;
+    --status-margin: 1.5rem;
 
-    --spinner-size: 1rem;
+    --spinner-size: 1.2rem;
 }
 
 * {
@@ -76,26 +73,16 @@ body {
     padding: var(--body-padding);
 }
 
-/* Glassmorphic Container */
+/* Kiosk Layout Container (Visually removed panel background) */
 .card {
-    background: var(--panel-bg);
-    border: 1px solid var(--panel-border);
-    backdrop-filter: var(--glass-blur);
     width: var(--card-width);
     max-width: var(--card-max-width);
     height: var(--card-height);
     max-height: var(--card-max-height);
-    border-radius: var(--card-radius);
     padding: var(--card-padding);
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 40px rgba(6, 182, 212, 0.05);
     position: relative;
     z-index: 10;
     transition: var(--transition);
-}
-
-.card:hover {
-    border-color: rgba(255, 255, 255, 0.15);
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 50px rgba(16, 185, 129, 0.08);
 }
 
 /* Logo / Header */
@@ -150,7 +137,7 @@ h1 {
 label {
     font-size: var(--label-size);
     font-weight: 600;
-    color: var(--text-muted);
+    color: var(--text-main); /* brighter label text for visibility */
     text-transform: uppercase;
     letter-spacing: var(--label-spacing);
     padding-left: 0.25rem;
@@ -158,7 +145,7 @@ label {
 
 input {
     width: 100%;
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(255, 255, 255, 0.06); /* elevated background for contrast */
     border: 1px solid var(--panel-border);
     border-radius: var(--input-radius);
     padding: var(--input-padding);
@@ -170,9 +157,9 @@ input {
 }
 
 input:focus {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.1);
     border-color: var(--accent-secondary);
-    box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);
+    box-shadow: 0 0 15px rgba(6, 182, 212, 0.25);
 }
 
 input::placeholder {
@@ -241,14 +228,14 @@ button:disabled {
 }
 
 button.btn-secondary {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.08);
     border: 1px solid var(--panel-border);
-    color: var(--text-muted);
+    color: var(--text-main);
     box-shadow: none;
 }
 
 button.btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.15);
     color: white;
     box-shadow: none;
 }
@@ -317,37 +304,36 @@ button.btn-secondary:hover {
     :root {
         --card-width: 92vw;
         --card-height: 90vh;
-        --card-max-width: 520px;
-        --card-max-height: 800px;
+        --card-max-width: 600px;
+        --card-max-height: 850px;
         --card-padding: 2.5rem 2rem;
-        --card-radius: 20px;
 
-        --logo-size: 3.75rem;
-        --logo-radius: 14px;
-        --logo-margin: 1rem;
-        --logo-icon-size: 2rem;
+        --logo-size: 4.5rem;
+        --logo-radius: 18px;
+        --logo-margin: 1.25rem;
+        --logo-icon-size: 2.5rem;
 
-        --title-size: 1.6rem;
-        --subtitle-size: 0.9rem;
-        --label-size: 0.85rem;
+        --title-size: 2.2rem;
+        --subtitle-size: 1.1rem;
+        --label-size: 1.1rem;
         --label-spacing: 1.2px;
 
-        --input-padding: 0.95rem 1.25rem;
-        --input-size: 1.05rem;
-        --input-radius: 12px;
+        --input-padding: 1.2rem 1.6rem;
+        --input-size: 1.4rem;
+        --input-radius: 14px;
 
-        --btn-padding: 0.95rem;
-        --btn-size: 1.05rem;
-        --btn-radius: 12px;
-        --btn-margin: 1rem;
-        --btn-gap: 0.75rem;
+        --btn-padding: 1.25rem;
+        --btn-size: 1.4rem;
+        --btn-radius: 14px;
+        --btn-margin: 1.25rem;
+        --btn-gap: 1rem;
 
-        --status-padding: 0.9rem 1.1rem;
-        --status-size: 0.95rem;
-        --status-radius: 12px;
-        --status-margin: 1.25rem;
+        --status-padding: 1.2rem 1.4rem;
+        --status-size: 1.2rem;
+        --status-radius: 14px;
+        --status-margin: 1.5rem;
 
-        --spinner-size: 1.2rem;
+        --spinner-size: 1.4rem;
     }
 
     .card {
@@ -363,37 +349,36 @@ button.btn-secondary:hover {
         --body-padding: 0.5rem;
         --card-width: 96vw;
         --card-height: 90vh;
-        --card-max-width: 820px;
-        --card-max-height: 560px;
+        --card-max-width: 900px;
+        --card-max-height: 580px;
         --card-padding: 1.5rem 2.5rem;
-        --card-radius: 16px;
 
-        --logo-size: 2.75rem;
-        --logo-radius: 10px;
-        --logo-margin: 0.5rem;
-        --logo-icon-size: 1.5rem;
+        --logo-size: 3.5rem;
+        --logo-radius: 12px;
+        --logo-margin: 0.6rem;
+        --logo-icon-size: 2rem;
 
-        --title-size: 1.35rem;
-        --subtitle-size: 0.8rem;
-        --label-size: 0.75rem;
+        --title-size: 1.8rem;
+        --subtitle-size: 1rem;
+        --label-size: 1rem;
         --label-spacing: 0.8px;
 
-        --input-padding: 0.75rem 1rem;
-        --input-size: 1rem;
-        --input-radius: 10px;
+        --input-padding: 1rem 1.4rem;
+        --input-size: 1.25rem;
+        --input-radius: 12px;
 
-        --btn-padding: 0.85rem;
-        --btn-size: 1rem;
-        --btn-radius: 10px;
-        --btn-margin: 0.4rem;
-        --btn-gap: 0.6rem;
+        --btn-padding: 1.1rem;
+        --btn-size: 1.25rem;
+        --btn-radius: 12px;
+        --btn-margin: 0.5rem;
+        --btn-gap: 0.75rem;
 
-        --status-padding: 0.6rem 0.85rem;
-        --status-size: 0.8rem;
-        --status-radius: 8px;
+        --status-padding: 0.85rem 1.1rem;
+        --status-size: 1rem;
+        --status-radius: 10px;
         --status-margin: 0;
 
-        --spinner-size: 1rem;
+        --spinner-size: 1.2rem;
     }
 
     .card {
@@ -444,31 +429,30 @@ button.btn-secondary:hover {
         --body-padding: 0.25rem;
         --card-max-height: 540px;
         --card-padding: 0.85rem 1.75rem;
-        --card-radius: 12px;
 
-        --logo-size: 2.25rem;
-        --logo-radius: 8px;
-        --logo-margin: 0.35rem;
-        --logo-icon-size: 1.25rem;
+        --logo-size: 3rem;
+        --logo-radius: 10px;
+        --logo-margin: 0.5rem;
+        --logo-icon-size: 1.5rem;
 
-        --title-size: 1.2rem;
-        --subtitle-size: 0.75rem;
-        --label-size: 0.7rem;
-        --label-spacing: 0.5px;
+        --title-size: 1.5rem;
+        --subtitle-size: 0.9rem;
+        --label-size: 0.9rem;
+        --label-spacing: 0.6px;
 
-        --input-padding: 0.65rem 0.9rem;
-        --input-size: 0.95rem;
-        --input-radius: 8px;
+        --input-padding: 0.85rem 1.2rem;
+        --input-size: 1.15rem;
+        --input-radius: 10px;
 
-        --btn-padding: 0.75rem;
-        --btn-size: 0.95rem;
-        --btn-radius: 8px;
-        --btn-margin: 0.3rem;
-        --btn-gap: 0.5rem;
+        --btn-padding: 1rem;
+        --btn-size: 1.15rem;
+        --btn-radius: 10px;
+        --btn-margin: 0.4rem;
+        --btn-gap: 0.6rem;
 
-        --status-padding: 0.5rem 0.75rem;
-        --status-size: 0.75rem;
-        --status-radius: 6px;
+        --status-padding: 0.65rem 0.9rem;
+        --status-size: 0.9rem;
+        --status-radius: 8px;
     }
 
     #checkin-form {
@@ -485,35 +469,34 @@ button.btn-secondary:hover {
     :root {
         --card-width: 80vw;
         --card-height: 75vh;
-        --card-max-width: 900px;
-        --card-max-height: 1400px;
+        --card-max-width: 1000px;
+        --card-max-height: 1600px;
         --card-padding: 5rem 4rem;
-        --card-radius: 32px;
 
-        --logo-size: 6.5rem;
-        --logo-radius: 22px;
-        --logo-margin: 2rem;
-        --logo-icon-size: 3.5rem;
+        --logo-size: 8rem;
+        --logo-radius: 24px;
+        --logo-margin: 2.5rem;
+        --logo-icon-size: 4.5rem;
 
-        --title-size: 2.8rem;
-        --subtitle-size: 1.3rem;
-        --label-size: 1.2rem;
+        --title-size: 3.2rem;
+        --subtitle-size: 1.5rem;
+        --label-size: 1.4rem;
         --label-spacing: 2px;
 
-        --input-padding: 1.4rem 2rem;
-        --input-size: 1.6rem;
-        --input-radius: 20px;
+        --input-padding: 1.5rem 2.2rem;
+        --input-size: 1.8rem;
+        --input-radius: 22px;
 
-        --btn-padding: 1.4rem;
-        --btn-size: 1.6rem;
-        --btn-radius: 20px;
-        --btn-margin: 1.5rem;
-        --btn-gap: 1.5rem;
+        --btn-padding: 1.5rem;
+        --btn-size: 1.8rem;
+        --btn-radius: 22px;
+        --btn-margin: 2rem;
+        --btn-gap: 1.75rem;
 
-        --status-padding: 1.4rem 1.8rem;
-        --status-size: 1.3rem;
-        --status-radius: 20px;
-        --status-margin: 2rem;
+        --status-padding: 1.5rem 2rem;
+        --status-size: 1.5rem;
+        --status-radius: 22px;
+        --status-margin: 2.5rem;
     }
 }
 
@@ -524,34 +507,33 @@ button.btn-secondary:hover {
 
         --card-width: 85vw;
         --card-height: 80vh;
-        --card-max-width: 1500px;
-        --card-max-height: 950px;
+        --card-max-width: 1600px;
+        --card-max-height: 1000px;
         --card-padding: 3.5rem 5rem;
-        --card-radius: 32px;
 
-        --logo-size: 5.5rem;
-        --logo-radius: 20px;
-        --logo-margin: 1.5rem;
-        --logo-icon-size: 3rem;
+        --logo-size: 7rem;
+        --logo-radius: 22px;
+        --logo-margin: 1.75rem;
+        --logo-icon-size: 3.5rem;
 
-        --title-size: 2.4rem;
-        --subtitle-size: 1.2rem;
-        --label-size: 1.1rem;
+        --title-size: 3rem;
+        --subtitle-size: 1.4rem;
+        --label-size: 1.3rem;
         --label-spacing: 1.5px;
 
-        --input-padding: 1.3rem 1.8rem;
-        --input-size: 1.5rem;
-        --input-radius: 18px;
+        --input-padding: 1.5rem 2.2rem;
+        --input-size: 1.8rem;
+        --input-radius: 20px;
 
-        --btn-padding: 1.3rem;
-        --btn-size: 1.5rem;
-        --btn-radius: 18px;
-        --btn-margin: 1rem;
-        --btn-gap: 1.25rem;
+        --btn-padding: 1.5rem;
+        --btn-size: 1.8rem;
+        --btn-radius: 20px;
+        --btn-margin: 1.25rem;
+        --btn-gap: 1.5rem;
 
-        --status-padding: 1.25rem 1.75rem;
-        --status-size: 1.2rem;
-        --status-radius: 16px;
+        --status-padding: 1.4rem 1.8rem;
+        --status-size: 1.4rem;
+        --status-radius: 18px;
     }
 
     #checkin-form {
