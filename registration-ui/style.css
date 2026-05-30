@@ -367,6 +367,7 @@ button.btn-secondary:hover {
         display: flex;
         flex-direction: column;
         justify-content: center;
+        height: 100%;
     }
 
     .logo-icon {
@@ -399,6 +400,8 @@ button.btn-secondary:hover {
         display: flex;
         flex-direction: column;
         gap: 0.55rem;
+        justify-content: center;
+        height: 100%;
     }
 
     .form-group {
