@@ -1,17 +1,23 @@
 :root {
     /* Google Material Design 3 Dark Theme Palette */
     --md-sys-color-background: #121212;
-    --md-sys-color-surface: #1f1f23; /* Surface Container */
-    --md-sys-color-outline: #8e918f; /* M3 outline */
-    --md-sys-color-outline-variant: #444746; /* M3 outline variant */
-    --md-sys-color-primary: #80deea; /* Material Cyan / Accent */
-    --md-sys-color-on-primary: #00363a; /* Dark Teal text for Cyan button */
+    --md-sys-color-surface: #1f1f23;
+    /* Surface Container */
+    --md-sys-color-outline: #8e918f;
+    /* M3 outline */
+    --md-sys-color-outline-variant: #444746;
+    /* M3 outline variant */
+    --md-sys-color-primary: #80deea;
+    /* Material Cyan / Accent */
+    --md-sys-color-on-primary: #00363a;
+    /* Dark Teal text for Cyan button */
     --md-sys-color-primary-container: #004d40;
     --md-sys-color-on-primary-container: #e0f2f1;
     --md-sys-color-on-surface: #e2e3e2;
     --md-sys-color-on-surface-variant: #c4c7c5;
-    
-    --transition: all 0.2s cubic-bezier(0.2, 0, 0, 1); /* M3 standard deceleration curve */
+
+    --transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+    /* M3 standard deceleration curve */
 
     /* Dimensions & Spacing Design Tokens */
     --body-padding: 1.5rem 1rem;
@@ -20,12 +26,14 @@
     --card-height: auto;
     --card-max-height: none;
     --card-padding: 2.5rem;
-    --card-radius: 28px; /* M3 Extra Large shape */
+    --card-radius: 28px;
+    /* M3 Extra Large shape */
     --card-border: 1px solid var(--md-sys-color-outline-variant);
     --card-bg: var(--md-sys-color-surface);
 
     --logo-size: 3.5rem;
-    --logo-radius: 16px; /* M3 Medium shape */
+    --logo-radius: 16px;
+    /* M3 Medium shape */
     --logo-margin: 1.25rem;
     --logo-icon-size: 2rem;
 
@@ -44,7 +52,8 @@
 
     --btn-padding: 1rem 1.5rem;
     --btn-size: 1.05rem;
-    --btn-radius: 100px; /* M3 Fully Rounded shape (capsule) */
+    --btn-radius: 100px;
+    /* M3 Fully Rounded shape (capsule) */
     --btn-margin: 1.25rem;
     --btn-gap: 0.75rem;
 
@@ -54,7 +63,7 @@
     --status-margin: 1.25rem;
 
     --spinner-size: 1.2rem;
-    
+
     --header-border: none;
     --header-padding: 0;
 }
@@ -143,7 +152,8 @@ h1 {
 
 label {
     font-size: var(--label-size);
-    font-weight: 500; /* M3 Medium label */
+    font-weight: 500;
+    /* M3 Medium label */
     color: var(--md-sys-color-on-surface-variant);
     letter-spacing: var(--label-spacing);
     padding-left: 0.25rem;
@@ -165,7 +175,8 @@ input {
 input:focus {
     border-color: var(--md-sys-color-primary);
     border-width: 2px;
-    background: rgba(128, 222, 234, 0.04); /* Subtle primary tint */
+    background: rgba(128, 222, 234, 0.04);
+    /* Subtle primary tint */
 }
 
 input::placeholder {
@@ -204,7 +215,8 @@ button {
 }
 
 button:hover {
-    background: #a0ecf4; /* Lighter cyan focus */
+    background: #a0ecf4;
+    /* Lighter cyan focus */
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
@@ -299,6 +311,7 @@ button.btn-secondary:hover {
         opacity: 0;
         transform: translateY(5px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -387,7 +400,7 @@ button.btn-secondary:hover {
         --status-margin: 0;
 
         --spinner-size: 1.2rem;
-        
+
         --header-border: 1px solid var(--md-sys-color-outline-variant);
         --header-padding: 0 3.5rem 0 0;
     }
@@ -395,7 +408,7 @@ button.btn-secondary:hover {
     .card {
         display: grid;
         grid-template-columns: 1fr 1.2fr;
-        grid-template-rows: auto auto;
+        grid-template-rows: 1fr auto;
         column-gap: 3.5rem;
         row-gap: 0.5rem;
         align-items: center;
@@ -466,7 +479,7 @@ button.btn-secondary:hover {
         --status-padding: 0.75rem 1.1rem;
         --status-size: 1rem;
         --status-radius: 12px;
-        
+
         --header-padding: 0 2rem 0 0;
     }
 
@@ -517,7 +530,7 @@ button.btn-secondary:hover {
 }
 
 /* High-Resolution Landscape Tablet/PC Adjustments (e.g., 2000x1200 CSS viewports) */
-@media (min-width: 1200px) and (min-height: 800px) {
+@media (min-width: 2000px) and (min-height: 1200px) {
     :root {
         --body-padding: 1.5rem;
 
@@ -551,7 +564,7 @@ button.btn-secondary:hover {
         --status-padding: 1.3rem 1.8rem;
         --status-size: 1.3rem;
         --status-radius: 20px;
-        
+
         --header-border: 1px solid var(--md-sys-color-outline-variant);
         --header-padding: 0 5rem 0 0;
     }

@@ -2,6 +2,7 @@ import os
 
 # Server Configurations
 HOST = os.getenv("EMR_GATEWAY_HOST", "0.0.0.0")
+# HOST = os.getenv("EMR_GATEWAY_HOST", "127.0.0.1")
 PORT = int(os.getenv("EMR_GATEWAY_PORT", "8000"))
 FRONTEND_PORT = int(os.getenv("EMR_FRONTEND_PORT", "3007"))
 
