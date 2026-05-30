@@ -3,9 +3,11 @@
     --bg-color: #060911;
     --panel-bg: rgba(10, 16, 30, 0.45);
     --panel-border: rgba(255, 255, 255, 0.06);
-    --accent-primary: #10b981; /* Emerald */
+    --accent-primary: #10b981;
+    /* Emerald */
     --accent-primary-glow: rgba(16, 185, 129, 0.25);
-    --accent-secondary: #06b6d4; /* Cyan */
+    --accent-secondary: #06b6d4;
+    /* Cyan */
     --accent-secondary-glow: rgba(6, 182, 212, 0.25);
     --text-main: #f3f4f6;
     --text-muted: #9ca3af;
@@ -14,7 +16,7 @@
 
     /* Dimensions & Spacing Design Tokens */
     --body-padding: 1.5rem 1rem;
-    --card-width: 450px;
+    --card-width: 1952px;
     --card-max-width: 95%;
     --card-height: auto;
     --card-max-height: none;
@@ -54,7 +56,7 @@
     --status-margin: 1.25rem;
 
     --spinner-size: 1rem;
-    
+
     --header-border: none;
     --header-padding: 0;
 }
@@ -69,7 +71,7 @@
 body {
     font-family: 'Outfit', 'Noto Sans KR', sans-serif;
     background-color: var(--bg-color);
-    background-image: 
+    background-image:
         radial-gradient(circle at 80% 20%, var(--accent-secondary-glow) 0%, transparent 50%),
         radial-gradient(circle at 10% 85%, var(--accent-primary-glow) 0%, transparent 50%);
     color: var(--text-main);
@@ -306,18 +308,38 @@ button.btn-secondary:hover {
 
 /* Keyframes */
 @keyframes pulse {
-    0% { transform: scale(1); box-shadow: 0 0 15px var(--accent-secondary-glow); }
-    50% { transform: scale(1.05); box-shadow: 0 0 25px rgba(6, 182, 212, 0.5); }
-    100% { transform: scale(1); box-shadow: 0 0 15px var(--accent-secondary-glow); }
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 15px var(--accent-secondary-glow);
+    }
+
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 0 25px rgba(6, 182, 212, 0.5);
+    }
+
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 15px var(--accent-secondary-glow);
+    }
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(5px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* Tablet portrait optimization (Android Kiosk / Tablet Devices) */
@@ -402,7 +424,7 @@ button.btn-secondary:hover {
         --status-margin: 0;
 
         --spinner-size: 1.2rem;
-        
+
         --header-border: 1px solid rgba(255, 255, 255, 0.06);
         --header-padding: 0 2.5rem 0 0;
     }
@@ -479,7 +501,7 @@ button.btn-secondary:hover {
         --status-padding: 0.65rem 0.9rem;
         --status-size: 0.85rem;
         --status-radius: 8px;
-        
+
         --header-padding: 0 1.5rem 0 0;
     }
 
@@ -564,7 +586,7 @@ button.btn-secondary:hover {
         --status-padding: 1.4rem 1.8rem;
         --status-size: 1.4rem;
         --status-radius: 18px;
-        
+
         --header-border: 1px solid rgba(255, 255, 255, 0.06);
         --header-padding: 0 4.5rem 0 0;
     }
