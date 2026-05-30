@@ -272,10 +272,15 @@ button.btn-secondary:hover {
 /* Tablet Optimizations (Android Kiosk / Tablet Devices) */
 @media (min-width: 600px) {
     .card {
-        width: 500px;
+        width: 92vw;
+        height: 90vh;
         max-width: 94%;
-        padding: 2rem;
+        max-height: 92%;
+        padding: 2.5rem 2rem;
         border-radius: 20px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
     }
 
     .logo-icon {
@@ -340,15 +345,17 @@ button.btn-secondary:hover {
     }
 
     .card {
-        width: 820px;
+        width: 96vw;
+        height: 90vh;
         max-width: 98%;
-        padding: 1.25rem 1.75rem;
+        max-height: 92%;
+        padding: 1.5rem 2.5rem;
         display: grid;
         grid-template-columns: 1fr 1.2fr;
         grid-template-rows: auto auto;
-        column-gap: 1.75rem;
+        column-gap: 2rem;
         row-gap: 0.5rem;
-        align-items: start;
+        align-items: center;
         border-radius: 16px;
     }
 
@@ -443,12 +450,15 @@ button.btn-secondary:hover {
     }
 
     .card {
-        width: 780px;
+        width: 96vw;
+        height: 90vh;
         max-width: 98%;
-        padding: 0.85rem 1.25rem;
-        column-gap: 1.5rem;
+        max-height: 92%;
+        padding: 0.85rem 1.75rem;
+        column-gap: 2rem;
         row-gap: 0.35rem;
         border-radius: 12px;
+        align-items: center;
     }
 
     .logo-icon {
