@@ -3,12 +3,12 @@ import os
 # Server Configurations
 
 ### Localhost test configuration ###
-# HOST = os.getenv("EMR_GATEWAY_HOST", "0.0.0.0") # 외부접속
-# DB_HOST = os.getenv("EMR_DB_HOST", "127.0.0.1") # localhost
+HOST = os.getenv("EMR_GATEWAY_HOST", "0.0.0.0") # 외부접속
+DB_HOST = os.getenv("EMR_DB_HOST", "127.0.0.1") # localhost
 
 ### Real configuration ###
-HOST = os.getenv("EMR_GATEWAY_HOST", "127.0.0.1") # 로컬접속
-DB_HOST = os.getenv("EMR_DB_HOST", "192.168.0.12") #진료실컴 DAVID ip(외부접속)
+# HOST = os.getenv("EMR_GATEWAY_HOST", "127.0.0.1") # 로컬접속
+# DB_HOST = os.getenv("EMR_DB_HOST", "192.168.0.12") #진료실컴 DAVID ip(외부접속)
 
 
 
