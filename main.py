@@ -157,13 +157,14 @@ class LoggingConnection:
 # Helper: Connect to Firebird DB
 def get_db_connection(db_name: str):
     db_path = os.path.join(DB_DIR, f"{db_name}.FDB")
-    is_local = DB_HOST in ("127.0.0.1", "localhost")
+    is_local = DB_HOST in ("127.0.0.1", "localhost", "", None)
     if is_local and not os.path.exists(db_path):
         logger.error(f"[DB CONNECTION ERROR] Database file not found locally: {db_path}")
         raise HTTPException(status_code=500, detail=f"Database file not found locally: {db_path}")
     try:
+        dsn = f"{DB_HOST}:{db_path}" if DB_HOST else db_path
         con = fdb.connect(
-            dsn=f"{DB_HOST}:{db_path}",
+            dsn=dsn,
             user=DB_USER,
             password=DB_PASSWORD
         )

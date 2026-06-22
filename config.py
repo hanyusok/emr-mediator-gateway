@@ -8,7 +8,7 @@ FRONTEND_PORT = int(os.getenv("EMR_FRONTEND_PORT", "3007"))
 
 # Database Credentials & Paths
 # DB_HOST = os.getenv("EMR_DB_HOST", "192.168.0.12") #진료실컴 DAVID ip
-DB_HOST = os.getenv("EMR_DB_HOST", "") #localhost
+DB_HOST = ""  # 빈 값으로 설정해야 TCP 차단을 우회하여 로컬 프로토콜로 직접 연결됩니다.
 DB_DIR = os.getenv("EMR_DB_DIR", "C:/mts3/db")
 DB_PORT = int(os.getenv("EMR_DB_PORT", "3050"))
 DB_USER = os.getenv("EMR_DB_USER", "SYSDBA")
