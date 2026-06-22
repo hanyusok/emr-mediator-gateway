@@ -177,8 +177,14 @@
                 </div>
             </div>
 
-            <div class="panel-title" style="margin-top: 1rem; border: none; padding: 0;">
-                Vitals Timeline (CHECK_VITAL)
+            <div class="tab-actions-header">
+                <div class="panel-title" style="margin-top: 0; border: none; padding: 0;">
+                    Vitals Timeline (CHECK_VITAL)
+                </div>
+                <button class="btn-small btn-small-primary" onclick="openVitalModal('create')">
+                    <svg style="width:0.85rem; height:0.85rem; fill:white;" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                    Add Vitals
+                </button>
             </div>
             <div class="history-timeline" id="vitals-timeline-list" style="margin-top: 1rem;">
                 <div class="empty-placeholder">No vitals logs found.</div>
@@ -187,6 +193,15 @@
 
         <!-- Tab 2: Chart Notes -->
         <div class="tab-content" id="charts-tab">
+            <div class="tab-actions-header">
+                <div class="panel-title" style="margin-top: 0; border: none; padding: 0; margin-bottom: 0;">
+                    Clinical Chart Notes (CHT[YYYY])
+                </div>
+                <button class="btn-small btn-small-primary" onclick="openChartModal('create')">
+                    <svg style="width:0.85rem; height:0.85rem; fill:white;" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                    Add Chart Note
+                </button>
+            </div>
             <div class="history-timeline" id="chart-timeline">
                 <div class="empty-placeholder">No clinical chart notes found.</div>
             </div>
@@ -209,11 +224,250 @@
                 </div>
             </div>
 
-            <div class="panel-title" style="border: none; padding: 0; margin-bottom: 0.75rem;">
-                Visit History Ledger (MTSMTR.MTR[YYYY])
+            <div class="tab-actions-header">
+                <div class="panel-title" style="border: none; padding: 0; margin-bottom: 0;">
+                    Visit History Ledger (MTSMTR.MTR[YYYY])
+                </div>
+                <button class="btn-small btn-small-primary" onclick="openLedgerModal('create')">
+                    <svg style="width:0.85rem; height:0.85rem; fill:white;" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                    Add Visit Record
+                </button>
             </div>
             <div class="history-timeline" id="ledger-timeline">
                 <div class="empty-placeholder">No ledger records found.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vital Form Modal -->
+    <div id="vital-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="vital-modal-title">Add Vital History</h3>
+                <button class="close-btn" onclick="closeModal('vital-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="vital-form-action">
+                <input type="hidden" id="vital-form-chktime">
+                <input type="hidden" id="vital-form-visidate">
+                
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="vital-weight-input">Weight (체중 - kg)</label>
+                        <input type="text" id="vital-weight-input" placeholder="e.g. 72.5">
+                    </div>
+                    <div class="form-group">
+                        <label for="vital-height-input">Height (신장 - cm)</label>
+                        <input type="text" id="vital-height-input" placeholder="e.g. 175.0">
+                    </div>
+                </div>
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="vital-temp-input">Temperature (체온 - °C)</label>
+                        <input type="text" id="vital-temp-input" placeholder="e.g. 36.5">
+                    </div>
+                    <div class="form-group">
+                        <label for="vital-pulse-input">Pulse (맥박 - bpm)</label>
+                        <input type="text" id="vital-pulse-input" placeholder="e.g. 72">
+                    </div>
+                </div>
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="vital-systolic-input">Systolic BP (수축기 - mmHg)</label>
+                        <input type="text" id="vital-systolic-input" placeholder="e.g. 120">
+                    </div>
+                    <div class="form-group">
+                        <label for="vital-diastolic-input">Diastolic BP (이완기 - mmHg)</label>
+                        <input type="text" id="vital-diastolic-input" placeholder="e.g. 80">
+                    </div>
+                </div>
+                <div class="form-grid-2" id="vital-datetime-fields" style="display: none;">
+                    <div class="form-group">
+                        <label for="vital-date-input">Visit Date</label>
+                        <input type="date" id="vital-date-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="vital-time-input">Visit Time</label>
+                        <input type="time" id="vital-time-input" step="1">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('vital-modal')">Cancel</button>
+                <button class="btn-primary" onclick="submitVitalForm()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart Note Form Modal -->
+    <div id="chart-modal" class="modal">
+        <div class="modal-content wide-modal">
+            <div class="modal-header">
+                <h3 id="chart-modal-title">Add Chart Note</h3>
+                <button class="close-btn" onclick="closeModal('chart-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="chart-form-action">
+                <input type="hidden" id="chart-form-visidate">
+                <input type="hidden" id="chart-form-visitime">
+                <input type="hidden" id="chart-form-source-table">
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="chart-date-input">Visit Date</label>
+                        <input type="date" id="chart-date-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="chart-time-input">Visit Time</label>
+                        <input type="time" id="chart-time-input" step="1">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="chart-symptom-input">Symptom / Notes (증상)</label>
+                    <textarea id="chart-symptom-input" placeholder="Enter clinical symptoms or chart notes..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Diagnoses Codes (상병코드 d1 - d10)</label>
+                    <div class="dx-inputs-grid">
+                        <input type="text" id="chart-d1" placeholder="d1">
+                        <input type="text" id="chart-d2" placeholder="d2">
+                        <input type="text" id="chart-d3" placeholder="d3">
+                        <input type="text" id="chart-d4" placeholder="d4">
+                        <input type="text" id="chart-d5" placeholder="d5">
+                    </div>
+                    <div class="dx-inputs-grid" style="margin-top:0.5rem;">
+                        <input type="text" id="chart-d6" placeholder="d6">
+                        <input type="text" id="chart-d7" placeholder="d7">
+                        <input type="text" id="chart-d8" placeholder="d8">
+                        <input type="text" id="chart-d9" placeholder="d9">
+                        <input type="text" id="chart-d10" placeholder="d10">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="chart-doc-input">Doctor Code (의사코드)</label>
+                    <input type="text" id="chart-doc-input" placeholder="e.g. 63221">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('chart-modal')">Cancel</button>
+                <button class="btn-primary" onclick="submitChartForm()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ledger Visit Form Modal -->
+    <div id="ledger-modal" class="modal">
+        <div class="modal-content wide-modal">
+            <div class="modal-header">
+                <h3 id="ledger-modal-title">Add Visit Ledger Record</h3>
+                <button class="close-btn" onclick="closeModal('ledger-modal')">&times;</button>
+            </div>
+            <div class="modal-body" style="max-height: 70vh; overflow-y: auto; padding-right: 0.5rem;">
+                <input type="hidden" id="ledger-form-action">
+                <input type="hidden" id="ledger-form-id">
+                <input type="hidden" id="ledger-form-source-table">
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="ledger-date-input">Visit Date</label>
+                        <input type="date" id="ledger-date-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="ledger-time-input">Visit Time</label>
+                        <input type="time" id="ledger-time-input" step="1">
+                    </div>
+                </div>
+
+                <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.75rem; margin-top: 0.25rem;">
+                    <span style="font-size:0.85rem; font-weight:600; color:var(--accent-secondary);">Vitals Check</span>
+                </div>
+                <div class="form-grid-3">
+                    <div class="form-group">
+                        <label for="ledger-weight">Weight (kg)</label>
+                        <input type="text" id="ledger-weight" placeholder="Weight">
+                    </div>
+                    <div class="form-group">
+                        <label for="ledger-height">Height (cm)</label>
+                        <input type="text" id="ledger-height" placeholder="Height">
+                    </div>
+                    <div class="form-group">
+                        <label for="ledger-temp">Temperature (°C)</label>
+                        <input type="text" id="ledger-temp" placeholder="Temp">
+                    </div>
+                </div>
+                <div class="form-grid-3">
+                    <div class="form-group">
+                        <label for="ledger-pulse">Pulse (bpm)</label>
+                        <input type="text" id="ledger-pulse" placeholder="Pulse">
+                    </div>
+                    <div class="form-group">
+                        <label for="ledger-systolic">Systolic (mmHg)</label>
+                        <input type="text" id="ledger-systolic" placeholder="Systolic BP">
+                    </div>
+                    <div class="form-group">
+                        <label for="ledger-diastolic">Diastolic (mmHg)</label>
+                        <input type="text" id="ledger-diastolic" placeholder="Diastolic BP">
+                    </div>
+                </div>
+
+                <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.75rem; margin-top: 0.25rem;">
+                    <span style="font-size:0.85rem; font-weight:600; color:var(--accent-secondary);">Vaccination & Medication Memo</span>
+                </div>
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="ledger-vax">Vaccine 1 (접종1)</label>
+                        <input type="text" id="ledger-vax" placeholder="e.g. 독감">
+                    </div>
+                    <div class="form-group">
+                        <label for="ledger-vax2">Vaccine 2 (접종2)</label>
+                        <input type="text" id="ledger-vax2" placeholder="e.g. 코로나">
+                    </div>
+                </div>
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="ledger-inj1">Inj Memo 1 (처치메모1)</label>
+                        <input type="text" id="ledger-inj1" placeholder="Inj Memo 1">
+                    </div>
+                    <div class="form-group">
+                        <label for="ledger-inj2">Inj Memo 2 (처치메모2)</label>
+                        <input type="text" id="ledger-inj2" placeholder="Inj Memo 2">
+                    </div>
+                </div>
+
+                <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.75rem; margin-top: 0.25rem;">
+                    <span style="font-size:0.85rem; font-weight:600; color:var(--accent-secondary);">Billing & Administrative</span>
+                </div>
+                <div class="form-grid-3">
+                    <div class="form-group">
+                        <label for="ledger-selfee">Patient Co-pay (본인부담금)</label>
+                        <input type="number" id="ledger-selfee" placeholder="₩">
+                    </div>
+                    <div class="form-group">
+                        <label for="ledger-genfee">Insurance Billing (공단청구금)</label>
+                        <input type="number" id="ledger-genfee" placeholder="₩">
+                    </div>
+                    <div class="form-group">
+                        <label for="ledger-totalfee">Total Treatment Fee (총진료비)</label>
+                        <input type="number" id="ledger-totalfee" placeholder="₩">
+                    </div>
+                </div>
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="ledger-doc">Doctor Code (의사코드)</label>
+                        <input type="text" id="ledger-doc" placeholder="e.g. 63221">
+                    </div>
+                    <div class="form-group">
+                        <label for="ledger-fin">Status (완료여부 - FIN)</label>
+                        <input type="text" id="ledger-fin" placeholder="e.g. 1 (empty if active)">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('ledger-modal')">Cancel</button>
+                <button class="btn-primary" onclick="submitLedgerForm()">Save</button>
             </div>
         </div>
     </div>

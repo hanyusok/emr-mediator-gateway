@@ -288,11 +288,17 @@ function renderVitals(vitals) {
         if (v.systolic || v.diastolic) detailsStr.push(`BP: ${v.systolic || '-'}/${v.diastolic || '-'} mmHg`);
         if (v.pulse) detailsStr.push(`Pulse: ${v.pulse} bpm`);
         
+        const editData = JSON.stringify(v).replace(/"/g, '&quot;');
+
         item.innerHTML = `
             <div class="timeline-date">${v.visidate} ${timeStr}</div>
             <div class="timeline-content">
                 <div class="timeline-title">Routine Physical Exam</div>
                 <div class="timeline-desc">${detailsStr.join("  |  ")}</div>
+                <div class="timeline-actions">
+                    <button class="btn-small btn-action-edit" onclick="openVitalModal('update', ${editData})">Edit</button>
+                    <button class="btn-small btn-action-delete" onclick="deleteVital('${v.visidate}', '${timeStr}')">Delete</button>
+                </div>
             </div>
         `;
         listEl.appendChild(item);
@@ -333,6 +339,7 @@ function fetchCharts(pcode) {
 
                 const symptom = c.symptom || "No symptom text entered.";
                 const docText = c.doc ? `Doctor Code: #${c.doc}` : "Unknown Doctor";
+                const editData = JSON.stringify(c).replace(/"/g, '&quot;');
 
                 item.innerHTML = `
                     <div class="timeline-date">${c.visidate} ${c.visitime || ''} (${c.source_table})</div>
@@ -343,6 +350,10 @@ function fetchCharts(pcode) {
                         </div>
                         <div class="timeline-desc">${symptom}</div>
                         ${dxHTML}
+                        <div class="timeline-actions">
+                            <button class="btn-small btn-action-edit" onclick="openChartModal('update', ${editData})">Edit</button>
+                            <button class="btn-small btn-action-delete" onclick="deleteChart('${c.visidate}', '${c.visitime || ''}', '${c.source_table}')">Delete</button>
+                        </div>
                     </div>
                 `;
                 chartTimeline.appendChild(item);
@@ -438,6 +449,9 @@ function fetchVisits(pcode) {
                     vitalsHTML = `<p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.25rem;">Vitals checked: ${vitalsPart.join(", ")}</p>`;
                 }
 
+                const editData = JSON.stringify(v).replace(/"/g, '&quot;');
+                const rowId = v["#"] || 0;
+
                 item.innerHTML = `
                     <div class="timeline-date">${v.visidate} ${v.visitime || ''} (${v.source_table})</div>
                     <div class="timeline-content">
@@ -448,6 +462,10 @@ function fetchVisits(pcode) {
                         ${treatmentHTML}
                         ${vitalsHTML}
                         ${feeHTML}
+                        <div class="timeline-actions">
+                            <button class="btn-small btn-action-edit" onclick="openLedgerModal('update', ${editData})">Edit</button>
+                            <button class="btn-small btn-action-delete" onclick="deleteLedger(${rowId}, '${v.source_table}')">Delete</button>
+                        </div>
                     </div>
                 `;
                 ledgerTimeline.appendChild(item);
@@ -556,5 +574,441 @@ function deleteFromWaitlist(event, resid1, pname) {
     .catch(err => {
         console.error("Delete error:", err);
         alert(`대기 삭제 중 오류 발생: ${err.message}`);
+    });
+}
+
+// 6. Generic Modal Open/Close helpers
+function openModal(modalId) {
+    const modal = document.getElementById(modalId);
+    modal.style.display = "flex";
+    setTimeout(() => {
+        modal.classList.add("active");
+    }, 10);
+}
+
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    modal.classList.remove("active");
+    setTimeout(() => {
+        modal.style.display = "none";
+    }, 300);
+}
+
+// 7. EMR Vitals Form & CRUD JavaScript Handlers
+function openVitalModal(action, data = null) {
+    document.getElementById("vital-form-action").value = action;
+    const datetimeFields = document.getElementById("vital-datetime-fields");
+
+    if (action === "create") {
+        document.getElementById("vital-modal-title").innerText = "Add Vitals History";
+        
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        const hh = String(now.getHours()).padStart(2, '0');
+        const min = String(now.getMinutes()).padStart(2, '0');
+        const sec = String(now.getSeconds()).padStart(2, '0');
+        
+        document.getElementById("vital-date-input").value = `${yyyy}-${mm}-${dd}`;
+        document.getElementById("vital-time-input").value = `${hh}:${min}:${sec}`;
+        datetimeFields.style.display = "grid";
+
+        document.getElementById("vital-weight-input").value = "";
+        document.getElementById("vital-height-input").value = "";
+        document.getElementById("vital-temp-input").value = "";
+        document.getElementById("vital-pulse-input").value = "";
+        document.getElementById("vital-systolic-input").value = "";
+        document.getElementById("vital-diastolic-input").value = "";
+    } else {
+        document.getElementById("vital-modal-title").innerText = "Edit Vitals History";
+        datetimeFields.style.display = "none";
+        
+        document.getElementById("vital-form-visidate").value = data.visidate;
+        document.getElementById("vital-form-chktime").value = data.chktime;
+        document.getElementById("vital-weight-input").value = data.weight || "";
+        document.getElementById("vital-height-input").value = data.height || "";
+        document.getElementById("vital-temp-input").value = data.temperatur || "";
+        document.getElementById("vital-pulse-input").value = data.pulse || "";
+        document.getElementById("vital-systolic-input").value = data.systolic || "";
+        document.getElementById("vital-diastolic-input").value = data.diastolic || "";
+    }
+    openModal("vital-modal");
+}
+
+function submitVitalForm() {
+    const action = document.getElementById("vital-form-action").value;
+    const weight = document.getElementById("vital-weight-input").value.trim();
+    const height = document.getElementById("vital-height-input").value.trim();
+    const temp = document.getElementById("vital-temp-input").value.trim();
+    const pulse = document.getElementById("vital-pulse-input").value.trim();
+    const systolic = document.getElementById("vital-systolic-input").value.trim();
+    const diastolic = document.getElementById("vital-diastolic-input").value.trim();
+
+    let payload = {
+        pcode: selectedPcode,
+        weight: weight || null,
+        height: height || null,
+        temperatur: temp || null,
+        pulse: pulse || null,
+        systolic: systolic || null,
+        diastolic: diastolic || null
+    };
+
+    let url = `${API_URL}/api/vitals`;
+    let method = "POST";
+
+    if (action === "create") {
+        payload.visidate = document.getElementById("vital-date-input").value;
+        payload.chktime = document.getElementById("vital-time-input").value;
+    } else {
+        payload.visidate = document.getElementById("vital-form-visidate").value;
+        payload.chktime = document.getElementById("vital-form-chktime").value;
+        method = "PUT";
+    }
+
+    fetch(url, {
+        method: method,
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(res => {
+        if (!res.ok) {
+            return res.json().then(err => { throw new Error(err.detail || "오류 발생"); });
+        }
+        return res.json();
+    })
+    .then(data => {
+        closeModal("vital-modal");
+        selectPatient(selectedPcode);
+        alert(data.message || "바이탈이 저장되었습니다.");
+    })
+    .catch(err => {
+        console.error("Vitals submit error:", err);
+        alert(`저장 실패: ${err.message}`);
+    });
+}
+
+function deleteVital(visidate, chktime) {
+    if (!confirm(`바이탈 기록 (${visidate} ${chktime})을 완전히 삭제하시겠습니까?`)) {
+        return;
+    }
+
+    fetch(`${API_URL}/api/vitals?pcode=${selectedPcode}&visidate=${visidate}&chktime=${encodeURIComponent(chktime)}`, {
+        method: "DELETE"
+    })
+    .then(res => {
+        if (!res.ok) {
+            return res.json().then(err => { throw new Error(err.detail || "삭제 실패"); });
+        }
+        return res.json();
+    })
+    .then(data => {
+        selectPatient(selectedPcode);
+        alert(data.message || "바이탈 기록이 삭제되었습니다.");
+    })
+    .catch(err => {
+        console.error("Vitals delete error:", err);
+        alert(`삭제 실패: ${err.message}`);
+    });
+}
+
+// 8. EMR Chart Notes Form & CRUD JavaScript Handlers
+function openChartModal(action, data = null) {
+    document.getElementById("chart-form-action").value = action;
+    const dateInput = document.getElementById("chart-date-input");
+    const timeInput = document.getElementById("chart-time-input");
+
+    if (action === "create") {
+        document.getElementById("chart-modal-title").innerText = "Add Clinical Chart Note";
+        dateInput.disabled = false;
+        timeInput.disabled = false;
+
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        const hh = String(now.getHours()).padStart(2, '0');
+        const min = String(now.getMinutes()).padStart(2, '0');
+        const sec = String(now.getSeconds()).padStart(2, '0');
+
+        dateInput.value = `${yyyy}-${mm}-${dd}`;
+        timeInput.value = `${hh}:${min}:${sec}`;
+
+        document.getElementById("chart-symptom-input").value = "";
+        document.getElementById("chart-doc-input").value = "63221";
+        for (let i = 1; i <= 10; i++) {
+            document.getElementById(`chart-d${i}`).value = "";
+        }
+    } else {
+        document.getElementById("chart-modal-title").innerText = "Edit Clinical Chart Note";
+        dateInput.disabled = true;
+        timeInput.disabled = true;
+
+        document.getElementById("chart-form-visidate").value = data.visidate;
+        document.getElementById("chart-form-visitime").value = data.visitime || "";
+        document.getElementById("chart-form-source-table").value = data.source_table;
+
+        dateInput.value = data.visidate;
+        timeInput.value = data.visitime || "";
+
+        document.getElementById("chart-symptom-input").value = data.symptom || "";
+        document.getElementById("chart-doc-input").value = data.doc || "";
+        for (let i = 1; i <= 10; i++) {
+            document.getElementById(`chart-d${i}`).value = data[`d${i}`] || "";
+        }
+    }
+    openModal("chart-modal");
+}
+
+function submitChartForm() {
+    const action = document.getElementById("chart-form-action").value;
+    const symptom = document.getElementById("chart-symptom-input").value.trim();
+    const doc = document.getElementById("chart-doc-input").value.trim();
+    
+    let payload = {
+        pcode: selectedPcode,
+        symptom: symptom || null,
+        doc: doc || null
+    };
+
+    for (let i = 1; i <= 10; i++) {
+        const val = document.getElementById(`chart-d${i}`).value.trim();
+        payload[`d${i}`] = val || null;
+    }
+
+    let url = `${API_URL}/api/charts`;
+    let method = "POST";
+
+    if (action === "create") {
+        payload.visidate = document.getElementById("chart-date-input").value;
+        payload.visitime = document.getElementById("chart-time-input").value;
+    } else {
+        payload.visidate = document.getElementById("chart-form-visidate").value;
+        payload.visitime = document.getElementById("chart-form-visitime").value;
+        payload.source_table = document.getElementById("chart-form-source-table").value;
+        method = "PUT";
+    }
+
+    fetch(url, {
+        method: method,
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(res => {
+        if (!res.ok) {
+            return res.json().then(err => { throw new Error(err.detail || "오류 발생"); });
+        }
+        return res.json();
+    })
+    .then(data => {
+        closeModal("chart-modal");
+        fetchCharts(selectedPcode);
+        alert(data.message || "차트 노트가 저장되었습니다.");
+    })
+    .catch(err => {
+        console.error("Charts submit error:", err);
+        alert(`저장 실패: ${err.message}`);
+    });
+}
+
+function deleteChart(visidate, visitime, source_table) {
+    if (!confirm(`차트 기록 (${visidate} ${visitime || ''})을 완전히 삭제하시겠습니까?`)) {
+        return;
+    }
+
+    fetch(`${API_URL}/api/charts?pcode=${selectedPcode}&visidate=${visidate}&visitime=${encodeURIComponent(visitime)}&source_table=${source_table}`, {
+        method: "DELETE"
+    })
+    .then(res => {
+        if (!res.ok) {
+            return res.json().then(err => { throw new Error(err.detail || "삭제 실패"); });
+        }
+        return res.json();
+    })
+    .then(data => {
+        fetchCharts(selectedPcode);
+        alert(data.message || "차트 기록이 삭제되었습니다.");
+    })
+    .catch(err => {
+        console.error("Charts delete error:", err);
+        alert(`삭제 실패: ${err.message}`);
+    });
+}
+
+// 9. EMR Medical Ledger & Visits Form & CRUD JavaScript Handlers
+function openLedgerModal(action, data = null) {
+    document.getElementById("ledger-form-action").value = action;
+    const dateInput = document.getElementById("ledger-date-input");
+    const timeInput = document.getElementById("ledger-time-input");
+
+    if (action === "create") {
+        document.getElementById("ledger-modal-title").innerText = "Add Visit Ledger Record";
+        dateInput.disabled = false;
+        timeInput.disabled = false;
+
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        const hh = String(now.getHours()).padStart(2, '0');
+        const min = String(now.getMinutes()).padStart(2, '0');
+        const sec = String(now.getSeconds()).padStart(2, '0');
+
+        dateInput.value = `${yyyy}-${mm}-${dd}`;
+        timeInput.value = `${hh}:${min}:${sec}`;
+
+        document.getElementById("ledger-weight").value = "";
+        document.getElementById("ledger-height").value = "";
+        document.getElementById("ledger-temp").value = "";
+        document.getElementById("ledger-pulse").value = "";
+        document.getElementById("ledger-systolic").value = "";
+        document.getElementById("ledger-diastolic").value = "";
+
+        document.getElementById("ledger-vax").value = "";
+        document.getElementById("ledger-vax2").value = "";
+        document.getElementById("ledger-inj1").value = "";
+        document.getElementById("ledger-inj2").value = "";
+
+        document.getElementById("ledger-selfee").value = 0;
+        document.getElementById("ledger-genfee").value = 0;
+        document.getElementById("ledger-totalfee").value = 0;
+
+        document.getElementById("ledger-doc").value = "63221";
+        document.getElementById("ledger-fin").value = "";
+    } else {
+        document.getElementById("ledger-modal-title").innerText = "Edit Visit Ledger Record";
+        dateInput.disabled = true;
+        timeInput.disabled = true;
+
+        document.getElementById("ledger-form-id").value = data["#"];
+        document.getElementById("ledger-form-source-table").value = data.source_table;
+
+        dateInput.value = data.visidate;
+        timeInput.value = data.visitime || "";
+
+        document.getElementById("ledger-weight").value = data.weight || "";
+        document.getElementById("ledger-height").value = data.height || "";
+        document.getElementById("ledger-temp").value = data.temperatur || "";
+        document.getElementById("ledger-pulse").value = data.pulse || "";
+        document.getElementById("ledger-systolic").value = data.systolic || "";
+        document.getElementById("ledger-diastolic").value = data.diastolic || "";
+
+        document.getElementById("ledger-vax").value = data.vax || "";
+        document.getElementById("ledger-vax2").value = data.vax2 || "";
+        document.getElementById("ledger-inj1").value = data.inj1 || "";
+        document.getElementById("ledger-inj2").value = data.inj2 || "";
+
+        document.getElementById("ledger-selfee").value = data.selfee || 0;
+        document.getElementById("ledger-genfee").value = data.genfee || 0;
+        document.getElementById("ledger-totalfee").value = data.totalfee || 0;
+
+        document.getElementById("ledger-doc").value = data.doc || "";
+        document.getElementById("ledger-fin").value = data.fin || "";
+    }
+    openModal("ledger-modal");
+}
+
+function submitLedgerForm() {
+    const action = document.getElementById("ledger-form-action").value;
+    const weight = document.getElementById("ledger-weight").value.trim();
+    const height = document.getElementById("ledger-height").value.trim();
+    const temp = document.getElementById("ledger-temp").value.trim();
+    const pulse = document.getElementById("ledger-pulse").value.trim();
+    const systolic = document.getElementById("ledger-systolic").value.trim();
+    const diastolic = document.getElementById("ledger-diastolic").value.trim();
+
+    const vax = document.getElementById("ledger-vax").value.trim();
+    const vax2 = document.getElementById("ledger-vax2").value.trim();
+    const inj1 = document.getElementById("ledger-inj1").value.trim();
+    const inj2 = document.getElementById("ledger-inj2").value.trim();
+
+    const selfee = parseInt(document.getElementById("ledger-selfee").value) || 0;
+    const genfee = parseInt(document.getElementById("ledger-genfee").value) || 0;
+    const totalfee = parseInt(document.getElementById("ledger-totalfee").value) || 0;
+
+    const doc = document.getElementById("ledger-doc").value.trim();
+    const fin = document.getElementById("ledger-fin").value.trim();
+
+    let payload = {
+        pcode: selectedPcode,
+        weight: weight || null,
+        height: height || null,
+        temperatur: temp || null,
+        pulse: pulse || null,
+        systolic: systolic || null,
+        diastolic: diastolic || null,
+        vax: vax || null,
+        vax2: vax2 || null,
+        inj1: inj1 || null,
+        inj2: inj2 || null,
+        selfee: selfee,
+        genfee: genfee,
+        totalfee: totalfee,
+        doc: doc || null,
+        fin: fin || null
+    };
+
+    let url = `${API_URL}/api/visits`;
+    let method = "POST";
+
+    if (action === "create") {
+        payload.visidate = document.getElementById("ledger-date-input").value;
+        payload.visitime = document.getElementById("ledger-time-input").value;
+    } else {
+        payload.id = parseInt(document.getElementById("ledger-form-id").value);
+        payload.source_table = document.getElementById("ledger-form-source-table").value;
+        method = "PUT";
+    }
+
+    fetch(url, {
+        method: method,
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(res => {
+        if (!res.ok) {
+            return res.json().then(err => { throw new Error(err.detail || "오류 발생"); });
+        }
+        return res.json();
+    })
+    .then(data => {
+        closeModal("ledger-modal");
+        fetchVisits(selectedPcode);
+        alert(data.message || "진료 기록 대장이 저장되었습니다.");
+    })
+    .catch(err => {
+        console.error("Ledger submit error:", err);
+        alert(`저장 실패: ${err.message}`);
+    });
+}
+
+function deleteLedger(id, source_table) {
+    if (!confirm(`진료기록 대장 record (ID: ${id} in ${source_table})를 완전히 삭제하시겠습니까?`)) {
+        return;
+    }
+
+    fetch(`${API_URL}/api/visits?id=${id}&source_table=${source_table}`, {
+        method: "DELETE"
+    })
+    .then(res => {
+        if (!res.ok) {
+            return res.json().then(err => { throw new Error(err.detail || "삭제 실패"); });
+        }
+        return res.json();
+    })
+    .then(data => {
+        fetchVisits(selectedPcode);
+        alert(data.message || "진료기록 대장이 삭제되었습니다.");
+    })
+    .catch(err => {
+        console.error("Ledger delete error:", err);
+        alert(`삭제 실패: ${err.message}`);
     });
 }

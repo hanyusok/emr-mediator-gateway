@@ -47,7 +47,10 @@ The main entry point of the server. It:
    - `PUT /api/waiting/{resid1}`: Refactored to update the doctor assignment (`DOC` column) in `MTSMTR` by decoding the session-like `resid1` key.
    - `DELETE /api/waiting/{resid1}`: Operates entirely on `MTSMTR` (bypassing `MTSWAIT`). It decodes `resid1` to retrieve the `pcode` and `visidate` and cancels (deletes) the ledger entry if the treatment is not yet completed (`FIN` is empty).
    - `GET /api/charts/{pcode}`: Loops through all annual clinical chart tables (e.g. `CHT2023`, `CHT2024`, `CHT2025`) in the `MTSCHT` database to reconstruct a patient's historical medical records.
+   - `POST /api/charts`, `PUT /api/charts`, `DELETE /api/charts`: Creates, updates, and deletes chart note records in MTSCHT (enforcing date uniqueness constraints).
    - `GET /api/visits/{pcode}`: Gathers billing ledger entries, weight, temperature, vaccinations, and treatment notes from the annual ledger tables (e.g. `MTR2025`) in `MTSMTR`.
+   - `POST /api/visits`, `PUT /api/visits`, `DELETE /api/visits`: Creates, updates, and deletes visit ledger entries in MTSMTR (with automatic doctor code truncation to prevent length errors).
+   - `POST /api/vitals`, `PUT /api/vitals`, `DELETE /api/vitals`: Creates, updates, and deletes vital history checks in `MTSDB.CHECK_VITAL`.
 4. **Launches Uvicorn**: Includes a `__main__` entry to start the application using `uvicorn.run(...)` on `http://127.0.0.1:8000`.
 
 ### 2.3. decryptor.py (IPC Decryptor Wrapper)

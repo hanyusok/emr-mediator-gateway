@@ -746,7 +746,7 @@ def update_waitlist_assignment(resid1: str, req: WaitlistUpdate):
     
     if req.doctrcode is not None:
         updates.append("DOC = ?")
-        params.append(req.doctrcode)
+        params.append(req.doctrcode[:4])
 
     # If they updated other fields that don't exist in MTSMTR, we can just return success
     if not updates:
@@ -786,8 +786,7 @@ def get_charts(pcode: int):
     for t in tables:
         try:
             # We select common fields. If columns differ slightly, we catch error
-            # CHT has: VISIDATE, VISITIME, SYMPTOM, D1, D2, DOC
-            sql = f"SELECT VISIDATE, VISITIME, SYMPTOM, D1, D2, D3, D4, DOC FROM {t} WHERE PCODE = ? ORDER BY VISIDATE DESC"
+            sql = f"SELECT VISIDATE, VISITIME, SYMPTOM, D1, D2, D3, D4, D5, D6, D7, D8, D9, D10, DOC FROM {t} WHERE PCODE = ? ORDER BY VISIDATE DESC"
             cur_cht.execute(sql, (pcode,))
             cols = [desc[0] for desc in cur_cht.description]
             rows = cur_cht.fetchall()
@@ -822,9 +821,9 @@ def get_visits(pcode: int):
             # MTR contains: VISIDATE, VISITIME, WEIGHT, HEIGHT, TEMPERATUR, PULSE, SYSTOLIC, DIASTOLIC,
             # TOTALFEE, SELFEE, GENFEE, AGE, VAX, INJ1
             sql = f"""
-                SELECT VISIDATE, VISITIME, WEIGHT, HEIGHT, TEMPERATUR, PULSE, 
+                SELECT "#", VISIDATE, VISITIME, WEIGHT, HEIGHT, TEMPERATUR, PULSE, 
                        SYSTOLIC, DIASTOLIC, TOTALFEE, SELFEE, GENFEE, AGE, 
-                       VAX, VAX2, INJ1, INJ2 
+                       VAX, VAX2, INJ1, INJ2, DOC, FIN 
                 FROM {t} WHERE PCODE = ? 
                 ORDER BY VISIDATE DESC
             """
@@ -842,6 +841,395 @@ def get_visits(pcode: int):
     
     all_visits.sort(key=lambda x: x.get("visidate", ""), reverse=True)
     return all_visits
+
+# Vitals CRUD schemas
+class VitalCreate(BaseModel):
+    pcode: int
+    visidate: Optional[datetime.date] = None
+    chktime: Optional[str] = None
+    weight: Optional[str] = None
+    height: Optional[str] = None
+    temperatur: Optional[str] = None
+    pulse: Optional[str] = None
+    systolic: Optional[str] = None
+    diastolic: Optional[str] = None
+
+class VitalUpdate(BaseModel):
+    pcode: int
+    visidate: datetime.date
+    chktime: str
+    weight: Optional[str] = None
+    height: Optional[str] = None
+    temperatur: Optional[str] = None
+    pulse: Optional[str] = None
+    systolic: Optional[str] = None
+    diastolic: Optional[str] = None
+
+# Charts CRUD schemas
+class ChartCreate(BaseModel):
+    pcode: int
+    visidate: Optional[datetime.date] = None
+    visitime: Optional[str] = None
+    symptom: Optional[str] = None
+    d1: Optional[str] = None
+    d2: Optional[str] = None
+    d3: Optional[str] = None
+    d4: Optional[str] = None
+    d5: Optional[str] = None
+    d6: Optional[str] = None
+    d7: Optional[str] = None
+    d8: Optional[str] = None
+    d9: Optional[str] = None
+    d10: Optional[str] = None
+    doc: Optional[str] = None
+
+class ChartUpdate(BaseModel):
+    pcode: int
+    visidate: datetime.date
+    visitime: str
+    source_table: str
+    symptom: Optional[str] = None
+    d1: Optional[str] = None
+    d2: Optional[str] = None
+    d3: Optional[str] = None
+    d4: Optional[str] = None
+    d5: Optional[str] = None
+    d6: Optional[str] = None
+    d7: Optional[str] = None
+    d8: Optional[str] = None
+    d9: Optional[str] = None
+    d10: Optional[str] = None
+    doc: Optional[str] = None
+
+# Ledger CRUD schemas
+class LedgerCreate(BaseModel):
+    pcode: int
+    visidate: Optional[datetime.date] = None
+    visitime: Optional[str] = None
+    weight: Optional[str] = None
+    height: Optional[str] = None
+    temperatur: Optional[str] = None
+    pulse: Optional[str] = None
+    systolic: Optional[str] = None
+    diastolic: Optional[str] = None
+    vax: Optional[str] = None
+    vax2: Optional[str] = None
+    inj1: Optional[str] = None
+    inj2: Optional[str] = None
+    selfee: Optional[int] = 0
+    genfee: Optional[int] = 0
+    totalfee: Optional[int] = 0
+    doc: Optional[str] = None
+    fin: Optional[str] = None
+
+class LedgerUpdate(BaseModel):
+    id: int # '#' column
+    source_table: str
+    pcode: int
+    visidate: Optional[datetime.date] = None
+    visitime: Optional[str] = None
+    weight: Optional[str] = None
+    height: Optional[str] = None
+    temperatur: Optional[str] = None
+    pulse: Optional[str] = None
+    systolic: Optional[str] = None
+    diastolic: Optional[str] = None
+    vax: Optional[str] = None
+    vax2: Optional[str] = None
+    inj1: Optional[str] = None
+    inj2: Optional[str] = None
+    selfee: Optional[int] = 0
+    genfee: Optional[int] = 0
+    totalfee: Optional[int] = 0
+    doc: Optional[str] = None
+    fin: Optional[str] = None
+
+# Helpers for dynamic tables
+def get_chart_table(visidate: datetime.date) -> str:
+    year = visidate.year
+    tbl = f"CHT{year}"
+    tables = get_annual_tables("MTSCHT", "CHT")
+    if tbl in tables:
+        return tbl
+    elif tables:
+        return tables[0]
+    else:
+        raise HTTPException(status_code=500, detail=f"No CHT[YYYY] tables found in MTSCHT database.")
+
+def get_mtr_table(visidate: datetime.date) -> str:
+    year = visidate.year
+    tbl = f"MTR{year}"
+    tables = get_annual_tables("MTSMTR", "MTR")
+    if tbl in tables:
+        return tbl
+    elif tables:
+        return tables[0]
+    else:
+        raise HTTPException(status_code=500, detail=f"No MTR[YYYY] tables found in MTSMTR database.")
+
+# Vitals Endpoints
+@app.post("/api/vitals")
+def create_vital(req: VitalCreate):
+    visidate = req.visidate or datetime.date.today()
+    chktime = req.chktime or datetime.datetime.now().time().strftime("%H:%M:%S")
+    
+    con = get_db_connection("MTSDB")
+    cur = con.cursor()
+    try:
+        sql = """
+            INSERT INTO CHECK_VITAL (PCODE, VISIDATE, CHKTIME, WEIGHT, HEIGHT, TEMPERATUR, PULSE, SYSTOLIC, DIASTOLIC)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        cur.execute(sql, (
+            req.pcode, visidate, chktime,
+            req.weight, req.height, req.temperatur, req.pulse, req.systolic, req.diastolic
+        ))
+        con.commit()
+        logger.info(f"Created vital record for patient {req.pcode} on {visidate} {chktime}")
+    except Exception as e:
+        con.rollback()
+        logger.error(f"Error creating vital record: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        con.close()
+    return {"status": "success", "message": "Vital record created successfully"}
+
+@app.put("/api/vitals")
+def update_vital(req: VitalUpdate):
+    con = get_db_connection("MTSDB")
+    cur = con.cursor()
+    try:
+        sql = """
+            UPDATE CHECK_VITAL 
+            SET WEIGHT = ?, HEIGHT = ?, TEMPERATUR = ?, PULSE = ?, SYSTOLIC = ?, DIASTOLIC = ?
+            WHERE PCODE = ? AND VISIDATE = ? AND CHKTIME = ?
+        """
+        cur.execute(sql, (
+            req.weight, req.height, req.temperatur, req.pulse, req.systolic, req.diastolic,
+            req.pcode, req.visidate, req.chktime
+        ))
+        con.commit()
+        logger.info(f"Updated vital record for patient {req.pcode} on {req.visidate} {req.chktime}")
+    except Exception as e:
+        con.rollback()
+        logger.error(f"Error updating vital record: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        con.close()
+    return {"status": "success", "message": "Vital record updated successfully"}
+
+@app.delete("/api/vitals")
+def delete_vital(pcode: int, visidate: str, chktime: str):
+    con = get_db_connection("MTSDB")
+    cur = con.cursor()
+    try:
+        date_obj = datetime.datetime.strptime(visidate, "%Y-%m-%d").date()
+        sql = "DELETE FROM CHECK_VITAL WHERE PCODE = ? AND VISIDATE = ? AND CHKTIME = ?"
+        cur.execute(sql, (pcode, date_obj, chktime))
+        con.commit()
+        logger.info(f"Deleted vital record for patient {pcode} on {visidate} {chktime}")
+    except Exception as e:
+        con.rollback()
+        logger.error(f"Error deleting vital record: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        con.close()
+    return {"status": "success", "message": "Vital record deleted successfully"}
+
+# Charts Endpoints
+@app.post("/api/charts")
+def create_chart(req: ChartCreate):
+    visidate = req.visidate or datetime.date.today()
+    visitime = req.visitime or datetime.datetime.now().time().strftime("%H:%M:%S")
+    
+    cht_table = get_chart_table(visidate)
+    con = get_db_connection("MTSCHT")
+    cur = con.cursor()
+    try:
+        # Check if record already exists for the composite key (pcode, visidate)
+        cur.execute(f"SELECT COUNT(*) FROM {cht_table} WHERE PCODE = ? AND VISIDATE = ?", (req.pcode, visidate))
+        if cur.fetchone()[0] > 0:
+            raise HTTPException(status_code=400, detail="A chart record already exists for this patient on this date.")
+
+        sql = f"""
+            INSERT INTO {cht_table} (PCODE, VISIDATE, VISITIME, SYMPTOM, D1, D2, D3, D4, D5, D6, D7, D8, D9, D10, DOC)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        cur.execute(sql, (
+            req.pcode, visidate, visitime, req.symptom,
+            req.d1, req.d2, req.d3, req.d4, req.d5, req.d6, req.d7, req.d8, req.d9, req.d10, req.doc
+        ))
+        con.commit()
+        logger.info(f"Created chart record in {cht_table} for patient {req.pcode} on {visidate} {visitime}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        con.rollback()
+        logger.error(f"Error creating chart record in {cht_table}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        con.close()
+    return {"status": "success", "message": "Chart record created successfully"}
+
+@app.put("/api/charts")
+def update_chart(req: ChartUpdate):
+    con = get_db_connection("MTSCHT")
+    cur = con.cursor()
+    try:
+        tbl = req.source_table.upper().strip()
+        tables = get_annual_tables("MTSCHT", "CHT")
+        if tbl not in tables:
+            raise HTTPException(status_code=400, detail="Invalid source table name")
+            
+        sql = f"""
+            UPDATE {tbl} 
+            SET SYMPTOM = ?, D1 = ?, D2 = ?, D3 = ?, D4 = ?, D5 = ?, D6 = ?, D7 = ?, D8 = ?, D9 = ?, D10 = ?, DOC = ?
+            WHERE PCODE = ? AND VISIDATE = ?
+        """
+        cur.execute(sql, (
+            req.symptom, req.d1, req.d2, req.d3, req.d4, req.d5, req.d6, req.d7, req.d8, req.d9, req.d10, req.doc,
+            req.pcode, req.visidate
+        ))
+        con.commit()
+        logger.info(f"Updated chart record in {tbl} for patient {req.pcode} on {req.visidate}")
+    except Exception as e:
+        con.rollback()
+        logger.error(f"Error updating chart record: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        con.close()
+    return {"status": "success", "message": "Chart record updated successfully"}
+
+@app.delete("/api/charts")
+def delete_chart(pcode: int, visidate: str, source_table: str, visitime: Optional[str] = None):
+    con = get_db_connection("MTSCHT")
+    cur = con.cursor()
+    try:
+        tbl = source_table.upper().strip()
+        tables = get_annual_tables("MTSCHT", "CHT")
+        if tbl not in tables:
+            raise HTTPException(status_code=400, detail="Invalid source table name")
+            
+        date_obj = datetime.datetime.strptime(visidate, "%Y-%m-%d").date()
+        sql = f"DELETE FROM {tbl} WHERE PCODE = ? AND VISIDATE = ?"
+        cur.execute(sql, (pcode, date_obj))
+        con.commit()
+        logger.info(f"Deleted chart record in {tbl} for patient {pcode} on {visidate}")
+    except Exception as e:
+        con.rollback()
+        logger.error(f"Error deleting chart record: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        con.close()
+    return {"status": "success", "message": "Chart record deleted successfully"}
+
+# Ledger Endpoints
+@app.post("/api/visits")
+def create_visit(req: LedgerCreate):
+    visidate = req.visidate or datetime.date.today()
+    visitime = req.visitime or datetime.datetime.now().time().strftime("%H:%M:%S")
+    
+    con_db = get_db_connection("MTSDB")
+    cur_db = con_db.cursor()
+    try:
+        cur_db.execute("SELECT PNAME, SEX, PBIRTH FROM PERSON WHERE PCODE = ?", (req.pcode,))
+        patient = cur_db.fetchone()
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        pname, sex, pbirth = patient[0], patient[1], patient[2]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error looking up patient: {e}")
+    finally:
+        con_db.close()
+        
+    age_str = calculate_age_str(pbirth) if pbirth else ""
+    mtr_table = get_mtr_table(visidate)
+    
+    con = get_db_connection("MTSMTR")
+    cur = con.cursor()
+    try:
+        generator_name = f"GEN_{mtr_table}_SEQ"
+        cur.execute(f"SELECT GEN_ID({generator_name}, 1) FROM RDB$DATABASE")
+        next_id = cur.fetchone()[0]
+        
+        sql = f"""
+            INSERT INTO {mtr_table} (
+                "#", PCODE, VISIDATE, VISITIME, PNAME, SEX, PBIRTH, AGE, 
+                WEIGHT, HEIGHT, TEMPERATUR, PULSE, SYSTOLIC, DIASTOLIC,
+                VAX, VAX2, INJ1, INJ2, SELFEE, GENFEE, TOTALFEE, DOC, FIN, GUBUN, SERIAL
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '키오', 1)
+        """
+        doc_val = req.doc[:4] if req.doc else None
+        cur.execute(sql, (
+            next_id, req.pcode, visidate, visitime, pname, sex, pbirth, age_str,
+            req.weight, req.height, req.temperatur, req.pulse, req.systolic, req.diastolic,
+            req.vax, req.vax2, req.inj1, req.inj2, req.selfee, req.genfee, req.totalfee, doc_val, req.fin
+        ))
+        con.commit()
+        logger.info(f"Created ledger record in {mtr_table} with ID {next_id} for patient {req.pcode}")
+    except Exception as e:
+        con.rollback()
+        logger.error(f"Error creating ledger record: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        con.close()
+    return {"status": "success", "message": "Ledger record created successfully", "id": next_id}
+
+@app.put("/api/visits")
+def update_visit(req: LedgerUpdate):
+    con = get_db_connection("MTSMTR")
+    cur = con.cursor()
+    try:
+        tbl = req.source_table.upper().strip()
+        tables = get_annual_tables("MTSMTR", "MTR")
+        if tbl not in tables:
+            raise HTTPException(status_code=400, detail="Invalid source table name")
+            
+        sql = f"""
+            UPDATE {tbl} 
+            SET WEIGHT = ?, HEIGHT = ?, TEMPERATUR = ?, PULSE = ?, SYSTOLIC = ?, DIASTOLIC = ?,
+                VAX = ?, VAX2 = ?, INJ1 = ?, INJ2 = ?, SELFEE = ?, GENFEE = ?, TOTALFEE = ?, DOC = ?, FIN = ?
+            WHERE "#" = ?
+        """
+        doc_val = req.doc[:4] if req.doc else None
+        cur.execute(sql, (
+            req.weight, req.height, req.temperatur, req.pulse, req.systolic, req.diastolic,
+            req.vax, req.vax2, req.inj1, req.inj2, req.selfee, req.genfee, req.totalfee, doc_val, req.fin,
+            req.id
+        ))
+        con.commit()
+        logger.info(f"Updated ledger record {req.id} in {tbl}")
+    except Exception as e:
+        con.rollback()
+        logger.error(f"Error updating ledger record {req.id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        con.close()
+    return {"status": "success", "message": "Ledger record updated successfully"}
+
+@app.delete("/api/visits")
+def delete_visit(id: int, source_table: str):
+    con = get_db_connection("MTSMTR")
+    cur = con.cursor()
+    try:
+        tbl = source_table.upper().strip()
+        tables = get_annual_tables("MTSMTR", "MTR")
+        if tbl not in tables:
+            raise HTTPException(status_code=400, detail="Invalid source table name")
+            
+        sql = f'DELETE FROM {tbl} WHERE "#" = ?'
+        cur.execute(sql, (id,))
+        con.commit()
+        logger.info(f"Deleted ledger record {id} in {tbl}")
+    except Exception as e:
+        con.rollback()
+        logger.error(f"Error deleting ledger record: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        con.close()
+    return {"status": "success", "message": "Ledger record deleted successfully"}
 
 # Serve single-page dashboard at root
 @app.get("/")
