@@ -17,7 +17,7 @@ This guide describes how to install, configure, and deploy the **EMR Integration
 The REST API requires the Firebird Client DLL (`fbclient.dll`) to interact with the databases.
 - If the database is hosted locally, ensure Firebird is installed and running.
 - Copy `fbclient.dll` (matching your architecture) to either:
-  - `C:\Windows\System32\` (Global system path)
+  - `C:\Windows\System32\` (Global system path) <매우 중요>
   - Or directly in the root of the server directory: `C:\rest-api-server\`
 
 ### 1.3. .NET Framework (C# Compiler)
